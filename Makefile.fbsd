@@ -1,0 +1,14 @@
+
+ujprog:
+	${CC} ${CFLAGS} -lftdi ujprog.c -o ujprog
+
+clean:
+	rm -f ujprog ujprog.o
+
+depend:
+	mkdep ${INCLUDES} ${SRCS}
+
+SRCS = ujprog.c
+INCLUDES = -I/usr/local/include
+CFLAGS += -Wall -L/usr/local/lib ${INCLUDES}
+
