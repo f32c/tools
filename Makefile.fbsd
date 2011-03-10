@@ -2,6 +2,9 @@
 ujprog:
 	${CC} ${CFLAGS} -lftdi ujprog.c -o ujprog
 
+install:
+	install -m 4755 ujprog /usr/local/bin
+
 clean:
 	rm -f ujprog ujprog.o
 
