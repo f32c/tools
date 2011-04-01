@@ -1,7 +1,7 @@
 /*
  * FTDI232R USB JTAG programmer
  *
- * v 0.02 2011/02/15
+ * v 0.03 2011/04/01
  *
  * (c) 2011 University of Zagreb
  * (c) 2010, 2011 Marko Zec <zec@fer.hr>
@@ -1274,7 +1274,39 @@ static struct jed_devices {
 		.addr_len =	1938,
 	},
 	{
+		.name =		"LFXP2-5E-6TQFP144",
+		.id =		0x01299043,
+		.pincount =	144,
+		.fuses =	1236476,
+		.row_width =	638,
+		.addr_len =	1938,
+	},
+	{
+		.name =		"LFXP2-5E-7TQFP144",
+		.id =		0x01299043,
+		.pincount =	144,
+		.fuses =	1236476,
+		.row_width =	638,
+		.addr_len =	1938,
+	},
+	{
 		.name =		"LFXP2-8E-5TQFP144",
+		.id =		0x0129A043,
+		.pincount =	144,
+		.fuses =	1954736,
+		.row_width =	772,
+		.addr_len =	2532,
+	},
+	{
+		.name =		"LFXP2-8E-6TQFP144",
+		.id =		0x0129A043,
+		.pincount =	144,
+		.fuses =	1954736,
+		.row_width =	772,
+		.addr_len =	2532,
+	},
+	{
+		.name =		"LFXP2-8E-7TQFP144",
 		.id =		0x0129A043,
 		.pincount =	144,
 		.fuses =	1954736,
