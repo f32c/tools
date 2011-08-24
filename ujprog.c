@@ -149,21 +149,11 @@ static struct cable_hw_map {
 
 #define	USB_BAUDS		1000000
 
-#ifdef XXX_BREVIA_BOARD
-/* Lattice Brevia + FT232UM module prototype only */
-#define	USB_TCK			0x08
-#define	USB_TMS			0x40
-#define	USB_TDI			0x20
-#define	USB_TDO			0x80
-#define	USB_CBUS_LED		0x02
-#else
-/* FER ULXP board */
 #define	USB_TCK			0x20
 #define	USB_TMS			0x80
 #define	USB_TDI			0x08
 #define	USB_TDO			0x40
-#define	USB_CBUS_LED		0x00
-#endif
+#define	USB_CBUS_LED		0x02
 
 #define	PPI_TCK			0x02
 #define	PPI_TMS			0x04
@@ -2026,7 +2016,7 @@ main(int argc, char *argv[])
 	int jed_target = JED_TGT_SRAM;
 	int debug = 0;
 
-	fprintf(stderr, "USB JTAG programmer v 0.02\n");
+	fprintf(stderr, "USB JTAG programmer v 0.03\n");
 	fprintf(stderr, "(c) 2011 University of Zagreb\n");
 
 	while ((c = getopt(argc, argv, "dc:j:")) != -1) {
