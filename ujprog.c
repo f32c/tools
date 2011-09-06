@@ -1,7 +1,7 @@
 /*
  * FTDI232R USB JTAG programmer
  *
- * v 0.03 2011/04/01
+ * v 0.04 2011/09/07
  *
  * (c) 2011 University of Zagreb
  * (c) 2010, 2011 Marko Zec <zec@fer.hr>
@@ -140,11 +140,9 @@ static struct cable_hw_map {
 	char *cable_path;
 } cable_hw_map[] = {
 	{CABLE_HW_USB,		"FER ULXP2 board JTAG / UART"},
-	{CABLE_HW_PPI,		"/dev/ppi0"},
+	{CABLE_HW_USB,		"FER ULX2S board JTAG / UART"},
 	{CABLE_HW_UNKNOWN,	NULL},
 };
-
-#define	CABLEHW2PATH(cablehw)	(cable_hw_map[cablehw].cable_path)
 
 
 #define	USB_BAUDS		1000000
@@ -435,7 +433,7 @@ setup_ppi(void)
 {
 	char c = 0;
 
-	ppi = open(CABLEHW2PATH(CABLE_HW_PPI), O_RDWR);
+	ppi = open("/dev/ppi0", O_RDWR);
 	if (ppi < 0)
 		return (errno);
 
@@ -467,6 +465,7 @@ static int
 setup_usb(void)
 {
 	int res;
+	struct cable_hw_map *hmp;
 
 	res = ftdi_init(&fc);
 	if (res < 0) {
@@ -474,8 +473,12 @@ setup_usb(void)
 		return (res);
 	}
 
-	res = ftdi_usb_open_desc(&fc, 0x0403, 0x6001,
-	    CABLEHW2PATH(CABLE_HW_USB), NULL);
+	for (hmp = cable_hw_map; hmp->cable_hw != CABLE_HW_UNKNOWN; hmp++) {
+		res = ftdi_usb_open_desc(&fc, 0x0403, 0x6001,
+		    hmp->cable_path, NULL);
+		if (res == 0)
+			break;
+	}
 	if (res < 0)
 		return (res);
 
@@ -2016,8 +2019,7 @@ main(int argc, char *argv[])
 	int jed_target = JED_TGT_SRAM;
 	int debug = 0;
 
-	fprintf(stderr, "USB JTAG programmer v 0.03\n");
-	fprintf(stderr, "(c) 2011 University of Zagreb\n");
+	fprintf(stderr, "ULX2S JTAG programmer v 0.04 09/2011\n");
 
 	while ((c = getopt(argc, argv, "dc:j:")) != -1) {
 		switch (c) {

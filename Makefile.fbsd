@@ -1,8 +1,12 @@
 
-ujprog:
-	${CC} ${CFLAGS} -lftdi ujprog.c -o ujprog
+SRCS = ujprog.c
+INCLUDES = -I/usr/local/include
+CFLAGS += -Wall -L/usr/local/lib ${INCLUDES}
 
-install:
+ujprog:	${SRCS}
+	${CC} ${CFLAGS} -lftdi ${SRCS} -o ujprog
+
+install: ujprog
 	install -m 4755 ujprog /usr/local/bin
 
 clean:
@@ -10,8 +14,3 @@ clean:
 
 depend:
 	mkdep ${INCLUDES} ${SRCS}
-
-SRCS = ujprog.c
-INCLUDES = -I/usr/local/include
-CFLAGS += -Wall -L/usr/local/lib ${INCLUDES}
-
