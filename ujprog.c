@@ -167,7 +167,7 @@ static struct cable_hw_map {
 
 #define	BUFLEN_MAX		USB_BUFLEN_ASYNC /* max(SYNC, ASYNC) */
 
-#define	LED_BLINK_RATE		500
+#define	LED_BLINK_RATE		250
 
 /* Runtime globals */
 static int cur_s = UNDEFINED;
@@ -1207,6 +1207,8 @@ delay_ms /= 50;
 			txpos++;
 	    		if (txpos >= sizeof(txbuf) / 2) {
 				commit(0);
+				if (need_led_blink)
+					set_port_mode(port_mode);
 			}
 		}
 		break;
