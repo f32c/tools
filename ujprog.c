@@ -1,7 +1,7 @@
 /*
  * FTDI232R USB JTAG programmer
  *
- * v 0.04 2011/09/07
+ * v 0.05 2011/09/27
  *
  * (c) 2011 University of Zagreb
  * (c) 2010, 2011 Marko Zec <zec@fer.hr>
@@ -141,6 +141,7 @@ static struct cable_hw_map {
 } cable_hw_map[] = {
 	{CABLE_HW_USB,		"FER ULXP2 board JTAG / UART"},
 	{CABLE_HW_USB,		"FER ULX2S board JTAG / UART"},
+	{CABLE_HW_USB,		"FER ULX2S board UART JTAG"},
 	{CABLE_HW_UNKNOWN,	NULL},
 };
 
@@ -2021,7 +2022,7 @@ main(int argc, char *argv[])
 	int jed_target = JED_TGT_SRAM;
 	int debug = 0;
 
-	fprintf(stderr, "ULX2S JTAG programmer v 0.04 09/2011\n");
+	fprintf(stderr, "ULX2S JTAG programmer v 0.05 09/2011\n");
 
 	while ((c = getopt(argc, argv, "dc:j:")) != -1) {
 		switch (c) {
