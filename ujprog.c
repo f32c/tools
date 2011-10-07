@@ -1,7 +1,7 @@
 /*
  * FTDI232R USB JTAG programmer
  *
- * v 0.05 2011/09/27
+ * v 0.98 2011/10/07
  *
  * (c) 2011 University of Zagreb
  * (c) 2010, 2011 Marko Zec <zec@fer.hr>
@@ -141,7 +141,6 @@ static struct cable_hw_map {
 } cable_hw_map[] = {
 	{CABLE_HW_USB,		"FER ULXP2 board JTAG / UART"},
 	{CABLE_HW_USB,		"FER ULX2S board JTAG / UART"},
-	{CABLE_HW_USB,		"FER ULX2S board UART JTAG"},
 	{CABLE_HW_UNKNOWN,	NULL},
 };
 
@@ -161,7 +160,7 @@ static struct cable_hw_map {
 
 #define	USB_BUFLEN_ASYNC	16384
 #ifdef WIN32
-#define	USB_BUFLEN_SYNC		16384
+#define	USB_BUFLEN_SYNC		2048
 #else
 #define	USB_BUFLEN_SYNC		384
 #endif
@@ -216,6 +215,14 @@ set_port_mode(int mode)
 {
 	int res = 0;
 
+#ifdef WIN32
+#ifdef XXX_DISABLED
+	/* XXX hack for WIN32, where switching port mode doesn't work */
+	if (mode == PORT_MODE_ASYNC) 
+		mode = PORT_MODE_SYNC;
+#endif
+#endif
+
 	/* No-op if already in requested mode, or not using USB */
 	if (!need_led_blink &&
 	    (port_mode == mode || cable_hw != CABLE_HW_USB)) {
@@ -245,6 +252,7 @@ set_port_mode(int mode)
 		/* Flush any stale RX buffers */
 		if (port_mode == PORT_MODE_SYNC)
 			break;
+
 #ifdef WIN32
 		/*
 		 * FT_Purge() is unreliable - there may be data queued at
@@ -256,21 +264,21 @@ set_port_mode(int mode)
 		 * is absolutely critical for all further operations.
 		 *
 		 * Empyrical evidence suggests that repeating the loop
-		 * below with the retry counter set to 2 should be sufficient
-		 * even for the fastest machines od the day to completely flush
+		 * below with the retry counter set to 5 * 10 ms should be
+		 * sufficient even for the fastest machines to completely flush
 		 * the RX pipeline.  Should unreliable operation on relatively
 		 * fast machines be experienced, bumping the retry counter
 		 * should be the first thing to attempt to remedy the issue.
 		 */
-		int retry = 2;
+		int retry = 5;
 		do {
 			FT_GetStatus(ftHandle, (DWORD *) &res,
 			    (DWORD *) &txbuf[0], (DWORD *) &txbuf[0]);
 			if (res == 0)
 				retry--;
 			FT_Purge(ftHandle, FT_PURGE_RX);
-			if (retry > 1)
-				ms_sleep(1);
+			if (retry >= 1)
+				ms_sleep(10);
 		} while (retry > 0);
 #else
 		do {
@@ -377,9 +385,24 @@ setup_usb(void)
 		return (res);
 	}
 
+	res = FT_SetFlowControl(ftHandle, FT_FLOW_NONE, 0, 0);
+	if (res != FT_OK) {
+		fprintf(stderr, "FT_SetFlowControl() failed\n");
+		return (res);
+	}
+
+	FT_Purge(ftHandle, FT_PURGE_RX);
+	ms_sleep(50);
+
 	res = FT_SetBitMode(ftHandle, 0, BITMODE_BITBANG);
 	if (res != FT_OK) {
 		fprintf(stderr, "FT_SetBitMode() failed\n");
+		return (res);
+	}
+
+	res = FT_SetTimeouts(ftHandle, 1000, 1000);
+	if (res != FT_OK) {
+		fprintf(stderr, "FT_SetTimeouts() failed\n");
 		return (res);
 	}
 
@@ -1185,8 +1208,10 @@ exec_svf_tokenized(int tokc, char *tokv[])
 					res = EXIT_FAILURE;
 					break;
 				}
-/* XXX make this a tunable parameter */
+#ifndef WIN32
+/* XXX this is apparently safe on FreeBSD */
 delay_ms /= 50;
+#endif
 				/* Silently reduce insanely long waits */
 				if (delay_ms > 3000)
 					delay_ms = 3000;
@@ -1447,8 +1472,14 @@ exec_jedec_file(char *path, int target, int debug)
 				    "SDR	%d	TDI  (%s);\n",
 				    jed_devices[jed_dev].row_width, tmpbuf);
 				*outcp++ = 0;
-				outcp += sprintf(outcp,
-				    "RUNTEST	IDLE	3 TCK;\n");
+				if (target == JED_TGT_FLASH) {
+					outcp += sprintf(outcp,
+					    "RUNTEST	IDLE"
+					    "	3 TCK	2.00E-003 SEC;\n");
+				} else {
+					outcp += sprintf(outcp,
+					    "RUNTEST	IDLE	3 TCK;\n");
+				}
 				*outcp++ = 0;
 
 				if (target == JED_TGT_FLASH) {
@@ -2022,7 +2053,7 @@ main(int argc, char *argv[])
 	int jed_target = JED_TGT_SRAM;
 	int debug = 0;
 
-	fprintf(stderr, "ULX2S JTAG programmer v 0.05 09/2011\n");
+	fprintf(stderr, "ULX2S JTAG programmer v 0.98 2011/10/07\n");
 
 	while ((c = getopt(argc, argv, "dc:j:")) != -1) {
 		switch (c) {
@@ -2103,6 +2134,8 @@ main(int argc, char *argv[])
 	res = set_port_mode(PORT_MODE_ASYNC);
 	set_state(IDLE);
 	set_state(RESET);
+
+	/* XXX tu kojiput crkne na WIN32 !!! */
 	commit(1);
 
 	if (argc == 1) {
