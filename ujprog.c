@@ -1,7 +1,7 @@
 /*
  * FTDI232R USB JTAG programmer
  *
- * v 0.98 2011/10/07
+ * v 0.99 2011/10/10
  *
  * (c) 2011 University of Zagreb
  * (c) 2010, 2011 Marko Zec <zec@fer.hr>
@@ -160,7 +160,7 @@ static struct cable_hw_map {
 
 #define	USB_BUFLEN_ASYNC	16384
 #ifdef WIN32
-#define	USB_BUFLEN_SYNC		2048
+#define	USB_BUFLEN_SYNC		16384
 #else
 #define	USB_BUFLEN_SYNC		384
 #endif
@@ -169,6 +169,8 @@ static struct cable_hw_map {
 
 #define	LED_BLINK_RATE		250
 
+static char *statc = "-\\|/";
+
 /* Runtime globals */
 static int cur_s = UNDEFINED;
 static unsigned char txbuf[8 * BUFLEN_MAX];
@@ -176,6 +178,8 @@ static int txpos = 0;
 static int need_led_blink;	/* Schedule CBUS led toggle */
 static int last_ledblink_ms;	/* Last time we toggled the CBUS LED */
 static int led_state;		/* CBUS LED indicator state */
+static int blinker_phase = 0;
+static int progress_perc = 0;
 
 
 #ifdef WIN32
@@ -237,6 +241,9 @@ set_port_mode(int mode)
 	if (need_led_blink) {
 		need_led_blink = 0;
 		led_state ^= USB_CBUS_LED;
+		fprintf(stderr, "\rProgramming: %d%% %c ",
+		    progress_perc, statc[blinker_phase]);
+		blinker_phase = (blinker_phase + 1) & 0x3;
 	}
 
 	switch (mode) {
@@ -249,37 +256,17 @@ set_port_mode(int mode)
 		    USB_TCK | USB_TMS | USB_TDI | led_state,
 		    BITMODE_SYNCBB | BITMODE_CBUS);
 
-		/* Flush any stale RX buffers */
 		if (port_mode == PORT_MODE_SYNC)
 			break;
 
+		/* Flush any stale RX buffers */
 #ifdef WIN32
-		/*
-		 * FT_Purge() is unreliable - there may be data queued at
-		 * the USB device which may arrive to the host after
-		 * FT_Purge() has completed.  Hence, we call FT_Purge()
-		 * several times in a loop in an attempt to _really_
-		 * flush all stale data in the RX pipeline / queue.
-		 * Proceeding in PORT_MODE_SYNC with a clean RX pipeline
-		 * is absolutely critical for all further operations.
-		 *
-		 * Empyrical evidence suggests that repeating the loop
-		 * below with the retry counter set to 5 * 10 ms should be
-		 * sufficient even for the fastest machines to completely flush
-		 * the RX pipeline.  Should unreliable operation on relatively
-		 * fast machines be experienced, bumping the retry counter
-		 * should be the first thing to attempt to remedy the issue.
-		 */
-		int retry = 5;
-		do {
-			FT_GetStatus(ftHandle, (DWORD *) &res,
-			    (DWORD *) &txbuf[0], (DWORD *) &txbuf[0]);
-			if (res == 0)
-				retry--;
-			FT_Purge(ftHandle, FT_PURGE_RX);
-			if (retry >= 1)
-				ms_sleep(10);
-		} while (retry > 0);
+		res = FT_RestartInTask(ftHandle);
+		if (res != FT_OK) {
+			fprintf(stderr, "FT_RestartInTask() failed\n");
+			return (res);
+		}
+		FT_Purge(ftHandle, FT_PURGE_RX);
 #else
 		do {
 			res = ftdi_read_data(&fc, &txbuf[0], sizeof(txbuf));
@@ -289,6 +276,8 @@ set_port_mode(int mode)
 
 	case PORT_MODE_ASYNC:
 #ifdef WIN32
+		if (port_mode != PORT_MODE_ASYNC)
+			FT_StopInTask(ftHandle);
 		res = FT_SetBitMode(ftHandle,
 #else
 		res = ftdi_set_bitmode(&fc,
@@ -391,8 +380,8 @@ setup_usb(void)
 		return (res);
 	}
 
+	FT_StopInTask(ftHandle);
 	FT_Purge(ftHandle, FT_PURGE_RX);
-	ms_sleep(50);
 
 	res = FT_SetBitMode(ftHandle, 0, BITMODE_BITBANG);
 	if (res != FT_OK) {
@@ -434,7 +423,7 @@ shutdown_usb(void)
 		return (res);
 	}
 
-	res = FT_SetLatencyTimer(ftHandle, 1);
+	res = FT_SetLatencyTimer(ftHandle, 10);
 	if (res < 0) {
 		fprintf(stderr, "FT_SetLatencyTimer() failed\n");
 		return (res);
@@ -1475,7 +1464,7 @@ exec_jedec_file(char *path, int target, int debug)
 				if (target == JED_TGT_FLASH) {
 					outcp += sprintf(outcp,
 					    "RUNTEST	IDLE"
-					    "	3 TCK	2.00E-003 SEC;\n");
+					    "	3 TCK	1.00E-003 SEC;\n");
 				} else {
 					outcp += sprintf(outcp,
 					    "RUNTEST	IDLE	3 TCK;\n");
@@ -1610,7 +1599,7 @@ exec_jedec_file(char *path, int target, int debug)
 				    "SIR	8	TDI  (03);\n");
 				*outcp++ = 0;
 				outcp += sprintf(outcp, "RUNTEST	IDLE"
-				    "	3 TCK	1.00E-002 SEC;\n");
+				    "	3 TCK	1.00E-003 SEC;\n");
 				*outcp++ = 0;
 			} else {
 				outcp += sprintf(outcp,
@@ -1799,7 +1788,7 @@ exec_jedec_file(char *path, int target, int debug)
 				    "	3 TCK	2.00E-001 SEC;\n");
 			} else {
 				outcp += sprintf(outcp, "RUNTEST	IDLE"
-				    "	3 TCK	1.00E-002 SEC;\n");
+				    "	3 TCK;\n");
 			}
 			*outcp++ = 0;
 			outcp += sprintf(outcp, "SIR	8	TDI  (B2);\n");
@@ -1835,12 +1824,12 @@ exec_jedec_file(char *path, int target, int debug)
 			outcp += sprintf(outcp, "SIR	8	TDI  (1E);\n");
 			*outcp++ = 0;
 			outcp += sprintf(outcp,
-			    "RUNTEST	IDLE	3 TCK	2.00E-001 SEC;\n");
+			    "RUNTEST	IDLE	3 TCK	2.00E-003 SEC;\n");
 			*outcp++ = 0;
 			outcp += sprintf(outcp, "SIR	8	TDI  (FF);\n");
 			*outcp++ = 0;
 			outcp += sprintf(outcp,
-			    "RUNTEST	IDLE	3 TCK	1.00E-002 SEC;\n");
+			    "RUNTEST	IDLE	3 TCK	1.00E-003 SEC;\n");
 			*outcp++ = 0;
 			outcp += sprintf(outcp,
 			    "STATE	RESET;\n");
@@ -1914,10 +1903,9 @@ static int
 exec_svf_mem(char *fbuf, int lines_tot, int debug)
 {
 	char cmdbuf[4096];
-	int newp, lno, tokc, cmd_complete, parentheses_open;
+	int lno, tokc, cmd_complete, parentheses_open;
 	int res = 0;
 	int llen = 0;
-	int oldp = -1;
 	char *cp, *c1;
 	char *sep = " \t\n\r";
 	char *linebuf, *item, *brkt;
@@ -1933,11 +1921,7 @@ exec_svf_mem(char *fbuf, int lines_tot, int debug)
 			printf("%s", linebuf);
 
 		llen = strlen(linebuf) + 1;
-		newp = lno * 1005 / (lines_tot * 10);
-		if (newp > oldp) {
-			fprintf(stderr, "\rProgramming: %d%% ", newp);
-			oldp = newp;
-		}
+		progress_perc = lno * 1005 / (lines_tot * 10);
 
 		/* Pre-parse input, join multiple lines to a single command */
 		for (item = strtok_r(linebuf, sep, &brkt); item;
@@ -2021,7 +2005,7 @@ exec_svf_mem(char *fbuf, int lines_tot, int debug)
 		cmd_complete = 0;
 	}
 	if (res == 0) {
-		fprintf(stderr, "\rProgramming: %d%% ", 100);
+		fprintf(stderr, "\rProgramming: 100%%  ");
 	}
 
 	/* Flush any buffered data */
@@ -2053,7 +2037,7 @@ main(int argc, char *argv[])
 	int jed_target = JED_TGT_SRAM;
 	int debug = 0;
 
-	fprintf(stderr, "ULX2S JTAG programmer v 0.98 2011/10/07\n");
+	fprintf(stderr, "ULX2S JTAG programmer v 0.99 2011/10/10\n");
 
 	while ((c = getopt(argc, argv, "dc:j:")) != -1) {
 		switch (c) {
@@ -2131,7 +2115,7 @@ main(int argc, char *argv[])
 	last_ledblink_ms = tstart;
 
 	/* Move TAP into RESET state. */
-	res = set_port_mode(PORT_MODE_ASYNC);
+	set_port_mode(PORT_MODE_ASYNC);
 	set_state(IDLE);
 	set_state(RESET);
 
@@ -2154,7 +2138,7 @@ main(int argc, char *argv[])
 		printf("\nFailed.\n");
 
 	/* Leave TAP in RESET state. */
-	res = set_port_mode(PORT_MODE_ASYNC);
+	set_port_mode(PORT_MODE_ASYNC);
 	set_state(IDLE);
 	set_state(RESET);
 	commit(1);
