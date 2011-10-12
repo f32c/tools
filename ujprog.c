@@ -158,9 +158,9 @@ static struct cable_hw_map {
 #define	PPI_TDI			0x01
 #define	PPI_TDO			0x40
 
-#define	USB_BUFLEN_ASYNC	16384
+#define	USB_BUFLEN_ASYNC	8192
 #ifdef WIN32
-#define	USB_BUFLEN_SYNC		16384
+#define	USB_BUFLEN_SYNC		4096
 #else
 #define	USB_BUFLEN_SYNC		384
 #endif
@@ -180,7 +180,6 @@ static int last_ledblink_ms;	/* Last time we toggled the CBUS LED */
 static int led_state;		/* CBUS LED indicator state */
 static int blinker_phase = 0;
 static int progress_perc = 0;
-static int mode_switch_delay = 0;
 
 
 #ifdef WIN32
@@ -219,9 +218,6 @@ static int
 set_port_mode(int mode)
 {
 	int res = 0;
-#ifdef WIN32
-	DWORD rxqsiz, txqsiz, evstat;
-#endif
 
 	/* No-op if already in requested mode, or not using USB */
 	if (!need_led_blink &&
@@ -245,6 +241,13 @@ set_port_mode(int mode)
 	switch (mode) {
 	case PORT_MODE_SYNC:
 #ifdef WIN32
+		/*
+		 * If switching to SYNC mode, attempt to allow for TX
+		 * buffers to drain first.
+		 */
+		if (port_mode != PORT_MODE_SYNC)
+			ms_sleep(20);
+
 		res = FT_SetBitMode(ftHandle,
 #else
 		res = ftdi_set_bitmode(&fc,
@@ -258,8 +261,8 @@ set_port_mode(int mode)
 		/* Flush any stale RX buffers */
 #ifdef WIN32
 		FT_W32_PurgeComm(ftHandle, PURGE_RXABORT);
-		ms_sleep(mode_switch_delay);
-		FT_W32_PurgeComm(ftHandle, PURGE_RXABORT);
+		ms_sleep(20);
+		FT_Purge(ftHandle, FT_PURGE_RX);
 #else
 		do {
 			res = ftdi_read_data(&fc, &txbuf[0], sizeof(txbuf));
@@ -770,7 +773,13 @@ commit_usb(void)
 			}
 #endif
 			if (res != txchunklen) {
+#ifdef WIN32
+				fprintf(stderr, "FT_Read() failed: "
+				    "expected %d, received %d bytes\n",
+				    txchunklen, res);
+#else
 				fprintf(stderr, "ftdi_read_data() failed\n");
+#endif
 				return (EXIT_FAILURE);
 			}
 		}
@@ -1188,10 +1197,6 @@ exec_svf_tokenized(int tokc, char *tokv[])
 					res = EXIT_FAILURE;
 					break;
 				}
-#ifndef WIN32
-/* XXX this is apparently safe on FreeBSD */
-delay_ms /= 50;
-#endif
 				/* Silently reduce insanely long waits */
 				if (delay_ms > 3000)
 					delay_ms = 3000;
@@ -1203,7 +1208,12 @@ delay_ms /= 50;
 			}
 		}
 		set_state(str2tapstate(tokv[1]));
-		i = delay_ms * 500; /* XXX hardcoded value */
+		i = delay_ms * (USB_BAUDS / 2000);
+#ifndef WIN32
+		/* libftdi is _very_ slow in sync mode */
+		if (port_mode == PORT_MODE_SYNC && i > USB_BUFLEN_SYNC / 2)
+			i /= 10;
+#endif
 		if (i > repeat)
 			repeat = i;
 		for (i = 1; i < repeat; i++) {
@@ -2027,7 +2037,7 @@ main(int argc, char *argv[])
 
 	fprintf(stderr, "ULX2S JTAG programmer v 0.99.1 2011/10/12\n");
 
-	while ((c = getopt(argc, argv, "dc:j:s:")) != -1) {
+	while ((c = getopt(argc, argv, "dc:j:")) != -1) {
 		switch (c) {
 		case 'd':
 			debug = 1;
@@ -2053,9 +2063,6 @@ main(int argc, char *argv[])
 				usage();
 				exit (EXIT_FAILURE);
 			}
-			break;
-		case 's':
-			mode_switch_delay = atoi(optarg);
 			break;
 		case '?':
 		default:
