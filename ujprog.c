@@ -237,7 +237,7 @@ set_port_mode(int mode)
 	if (need_led_blink) {
 		need_led_blink = 0;
 		led_state ^= USB_CBUS_LED;
-		printf("\rProgramming: %d%% %c ",
+		fprintf(stderr, "\rProgramming: %d%% %c ",
 		    progress_perc, statc[blinker_phase]);
 		blinker_phase = (blinker_phase + 1) & 0x3;
 	}
@@ -2128,7 +2128,7 @@ main(int argc, char *argv[])
 
 	tend = ms_uptime();
 	if (res == 0) {
-		printf("\rProgramming: 100%%  ");
+		fprintf(stderr, "\rProgramming: 100%%  ");
 		printf("\nCompleted in %.2f seconds.\n",
 		    (tend - tstart) / 1000.0);
 	} else
