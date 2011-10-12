@@ -180,6 +180,7 @@ static int last_ledblink_ms;	/* Last time we toggled the CBUS LED */
 static int led_state;		/* CBUS LED indicator state */
 static int blinker_phase = 0;
 static int progress_perc = 0;
+static int mode_switch_delay = 0;
 
 
 #ifdef WIN32
@@ -218,13 +219,8 @@ static int
 set_port_mode(int mode)
 {
 	int res = 0;
-
 #ifdef WIN32
-#ifdef XXX_DISABLED
-	/* XXX hack for WIN32, where switching port mode doesn't work */
-	if (mode == PORT_MODE_ASYNC) 
-		mode = PORT_MODE_SYNC;
-#endif
+	DWORD rxqsiz, txqsiz, evstat;
 #endif
 
 	/* No-op if already in requested mode, or not using USB */
@@ -241,7 +237,7 @@ set_port_mode(int mode)
 	if (need_led_blink) {
 		need_led_blink = 0;
 		led_state ^= USB_CBUS_LED;
-		fprintf(stderr, "\rProgramming: %d%% %c ",
+		printf("\rProgramming: %d%% %c ",
 		    progress_perc, statc[blinker_phase]);
 		blinker_phase = (blinker_phase + 1) & 0x3;
 	}
@@ -261,12 +257,9 @@ set_port_mode(int mode)
 
 		/* Flush any stale RX buffers */
 #ifdef WIN32
-		res = FT_RestartInTask(ftHandle);
-		if (res != FT_OK) {
-			fprintf(stderr, "FT_RestartInTask() failed\n");
-			return (res);
-		}
-		FT_Purge(ftHandle, FT_PURGE_RX);
+		FT_W32_PurgeComm(ftHandle, PURGE_RXABORT);
+		ms_sleep(mode_switch_delay);
+		FT_W32_PurgeComm(ftHandle, PURGE_RXABORT);
 #else
 		do {
 			res = ftdi_read_data(&fc, &txbuf[0], sizeof(txbuf));
@@ -276,8 +269,6 @@ set_port_mode(int mode)
 
 	case PORT_MODE_ASYNC:
 #ifdef WIN32
-		if (port_mode != PORT_MODE_ASYNC)
-			FT_StopInTask(ftHandle);
 		res = FT_SetBitMode(ftHandle,
 #else
 		res = ftdi_set_bitmode(&fc,
@@ -380,9 +371,6 @@ setup_usb(void)
 		return (res);
 	}
 
-	FT_StopInTask(ftHandle);
-	FT_Purge(ftHandle, FT_PURGE_RX);
-
 	res = FT_SetBitMode(ftHandle, 0, BITMODE_BITBANG);
 	if (res != FT_OK) {
 		fprintf(stderr, "FT_SetBitMode() failed\n");
@@ -394,6 +382,9 @@ setup_usb(void)
 		fprintf(stderr, "FT_SetTimeouts() failed\n");
 		return (res);
 	}
+
+	FT_Purge(ftHandle, FT_PURGE_TX);
+	FT_Purge(ftHandle, FT_PURGE_RX);
 
 	return (0);
 }
@@ -2004,12 +1995,9 @@ exec_svf_mem(char *fbuf, int lines_tot, int debug)
 		cp = cmdbuf;
 		cmd_complete = 0;
 	}
-	if (res == 0) {
-		fprintf(stderr, "\rProgramming: 100%%  ");
-	}
 
 	/* Flush any buffered data */
-	res = commit(1);
+	commit(1);
 
 	return (res);
 }
@@ -2037,9 +2025,9 @@ main(int argc, char *argv[])
 	int jed_target = JED_TGT_SRAM;
 	int debug = 0;
 
-	fprintf(stderr, "ULX2S JTAG programmer v 0.99 2011/10/10\n");
+	fprintf(stderr, "ULX2S JTAG programmer v 0.99.1 2011/10/12\n");
 
-	while ((c = getopt(argc, argv, "dc:j:")) != -1) {
+	while ((c = getopt(argc, argv, "dc:j:s:")) != -1) {
 		switch (c) {
 		case 'd':
 			debug = 1;
@@ -2065,6 +2053,9 @@ main(int argc, char *argv[])
 				usage();
 				exit (EXIT_FAILURE);
 			}
+			break;
+		case 's':
+			mode_switch_delay = atoi(optarg);
 			break;
 		case '?':
 		default:
@@ -2129,19 +2120,19 @@ main(int argc, char *argv[])
 			res = exec_svf_file(argv[0], debug);
 	}
 
-	tend = ms_uptime();
-
-	if (res == 0) {
-		printf("\nCompleted in %.2f seconds.\n",
-		    (tend - tstart) / 1000.0);
-	} else
-		printf("\nFailed.\n");
-
 	/* Leave TAP in RESET state. */
 	set_port_mode(PORT_MODE_ASYNC);
 	set_state(IDLE);
 	set_state(RESET);
 	commit(1);
+
+	tend = ms_uptime();
+	if (res == 0) {
+		printf("\rProgramming: 100%%  ");
+		printf("\nCompleted in %.2f seconds.\n",
+		    (tend - tstart) / 1000.0);
+	} else
+		printf("\nFailed.\n");
 
 	if (cable_hw == CABLE_HW_USB)
 		shutdown_usb();
