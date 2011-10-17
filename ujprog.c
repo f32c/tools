@@ -1,7 +1,7 @@
 /*
  * FTDI232R USB JTAG programmer
  *
- * v 0.99 2011/10/10
+ * v 1.00 2011/10/17
  *
  * (c) 2011 University of Zagreb
  * (c) 2010, 2011 Marko Zec <zec@fer.hr>
@@ -39,13 +39,19 @@
 #include <string.h>
 #include <unistd.h>
 
+#if !defined(__linux__) && !defined(WIN32)
+#define USE_PPI
+#endif
+
 #ifdef WIN32
 #include <windows.h>
 #include <ftd2xx.h>
 #else
 #include <sys/time.h>
+#ifdef USE_PPI
 #include <dev/ppbus/ppi.h>
 #include <dev/ppbus/ppbconf.h>
+#endif
 #include <ftdi.h>
 #endif
 
@@ -186,7 +192,9 @@ static int progress_perc = 0;
 FT_HANDLE ftHandle;		/* USB port handle */
 #else
 static struct ftdi_context fc;	/* USB port handle */
+#ifdef USE_PPI
 static int ppi;			/* Parallel port handle */
+#endif
 #endif
 
 
@@ -435,6 +443,7 @@ shutdown_usb(void)
 
 
 #ifndef WIN32
+#ifdef USE_PPI
 static int
 setup_ppi(void)
 {
@@ -466,6 +475,7 @@ shutdown_ppi(void)
 
 	close (ppi);
 }
+#endif
 
 
 static int
@@ -797,7 +807,7 @@ commit_usb(void)
 }
 
 
-#ifndef WIN32
+#ifdef USE_PPI
 static int
 commit_ppi(void)
 {
@@ -814,7 +824,7 @@ commit_ppi(void)
 	txpos = 0;
 	return (0);
 }
-#endif /* !WIN32 */
+#endif
 
 
 static int
@@ -825,12 +835,14 @@ commit(int force)
 	    txpos < sizeof(txbuf) / 2))
 		return (0);
 
-	if (cable_hw == CABLE_HW_USB)
-		return (commit_usb());
-#ifndef WIN32
-	else
+#ifdef USE_PPI
+	if (cable_hw == CABLE_HW_PPI)
 		return (commit_ppi());
 #endif
+	if (cable_hw == CABLE_HW_USB)
+		return (commit_usb());
+	else
+		return (EINVAL);
 }
 
 
@@ -1209,8 +1221,8 @@ exec_svf_tokenized(int tokc, char *tokv[])
 		}
 		set_state(str2tapstate(tokv[1]));
 		i = delay_ms * (USB_BAUDS / 2000);
-#ifndef WIN32
-		/* libftdi is _very_ slow in sync mode */
+#ifdef USE_PPI
+		/* libftdi is _very_ slow in sync mode on FreeBSD */
 		if (port_mode == PORT_MODE_SYNC && i > USB_BUFLEN_SYNC / 2)
 			i /= 10;
 #endif
@@ -2017,12 +2029,11 @@ static void
 usage(void)
 {
 
-#ifdef WIN32
 	fprintf(stderr,
-	    "Usage: ujprog [-d] [-j sram|flash] file\n");
-#else
-	fprintf(stderr,
+#ifdef USE_PPI
 	    "Usage: ujprog [-d] [-c usb|ppi] [-j sram|flash] file\n");
+#else
+	    "Usage: ujprog [-d] [-j sram|flash] file\n");
 #endif
 }
 
@@ -2035,7 +2046,7 @@ main(int argc, char *argv[])
 	int jed_target = JED_TGT_SRAM;
 	int debug = 0;
 
-	fprintf(stderr, "ULX2S JTAG programmer v 0.99.1 2011/10/12\n");
+	fprintf(stderr, "ULX2S JTAG programmer v 1.00 2011/10/17\n");
 
 	while ((c = getopt(argc, argv, "dc:j:")) != -1) {
 		switch (c) {
@@ -2045,7 +2056,7 @@ main(int argc, char *argv[])
 		case 'c':
 			if (strcmp(optarg, "usb") == 0)
 				cable_hw = CABLE_HW_USB;
-#ifndef WIN32
+#ifdef USE_PPI
 			else if (strcmp(optarg, "ppi") == 0)
 				cable_hw = CABLE_HW_PPI;
 #endif
@@ -2092,21 +2103,26 @@ main(int argc, char *argv[])
 			cable_hw = CABLE_HW_USB;
 		if (cable_hw == CABLE_HW_USB)
 			break;
-#ifndef WIN32
+#ifdef USE_PPI
 	case CABLE_HW_PPI:
 		res = setup_ppi();
 #endif
+	default:
+		/* can't happen, shut up gcc warnings */
+		break;
 	}
 
 	if (res) {
 		fprintf(stderr, "Cannot find JTAG cable.\n");
 		exit (EXIT_FAILURE);
 	}
-#ifndef WIN32
 	if (cable_hw == CABLE_HW_USB)
 		fprintf(stderr, "Using USB JTAG cable.\n");
 	else
+#ifdef USE_PPI
 		fprintf(stderr, "Using parallel port JTAG cable.\n");
+#else
+		fprintf(stderr, "Parallel port JTAG cable not supported!\n");
 #endif
 
 	tstart = ms_uptime();
@@ -2143,7 +2159,7 @@ main(int argc, char *argv[])
 
 	if (cable_hw == CABLE_HW_USB)
 		shutdown_usb();
-#ifndef WIN32
+#ifdef USE_PPI
 	else
 		shutdown_ppi();
 #endif
