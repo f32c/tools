@@ -6,6 +6,9 @@ CFLAGS += -Wall -L/usr/local/lib ${INCLUDES}
 ujprog:	${SRCS}
 	${CC} ${CFLAGS} -lftdi ${SRCS} -o ujprog
 
+flash:	ft232r_flash.c
+	${CC} ${CFLAGS} -lftdi ft232r_flash.c -o ft232r_flash
+	
 install: ujprog
 	install -m 4755 ujprog /usr/local/bin
 
