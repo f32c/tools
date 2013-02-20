@@ -189,7 +189,8 @@ static int progress_perc = 0;
 
 
 #ifdef WIN32
-FT_HANDLE ftHandle;		/* USB port handle */
+static FT_HANDLE ftHandle;		/* USB port handle */
+static int quick_mode;
 #else
 static struct ftdi_context fc;	/* USB port handle */
 #ifdef USE_PPI
@@ -245,6 +246,11 @@ set_port_mode(int mode)
 		    progress_perc, statc[blinker_phase]);
 		blinker_phase = (blinker_phase + 1) & 0x3;
 	}
+
+#ifdef WIN32
+	if (mode == PORT_MODE_ASYNC && !quick_mode)
+		mode = PORT_MODE_SYNC;
+#endif
 
 	switch (mode) {
 	case PORT_MODE_SYNC:
@@ -2031,10 +2037,16 @@ usage(void)
 
 	fprintf(stderr,
 #ifdef USE_PPI
-	    "Usage: ujprog [-d] [-c usb|ppi] [-j sram|flash] file\n");
+	    "Usage: ujprog [-d%s] [-c usb|ppi] [-j sram|flash] file\n",
 #else
-	    "Usage: ujprog [-d] [-j sram|flash] file\n");
+	    "Usage: ujprog [-d%s] [-j sram|flash] file\n",
 #endif
+#ifdef WIN32
+	    "q"
+#else
+	    ""
+#endif
+	    );
 }
 
 
@@ -2046,9 +2058,14 @@ main(int argc, char *argv[])
 	int jed_target = JED_TGT_SRAM;
 	int debug = 0;
 
-	fprintf(stderr, "ULX2S JTAG programmer v 1.00 2011/10/17\n");
+	fprintf(stderr, "ULX2S JTAG programmer v 1.01 2012/12/05 (zec)\n");
 
-	while ((c = getopt(argc, argv, "dc:j:")) != -1) {
+#ifdef WIN32
+#define OPTS	"qdc:j:"
+#else
+#define OPTS	"dc:j:"
+#endif
+	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
 		case 'd':
 			debug = 1;
@@ -2075,6 +2092,11 @@ main(int argc, char *argv[])
 				exit (EXIT_FAILURE);
 			}
 			break;
+#ifdef WIN32
+		case 'q':
+			quick_mode = 1;
+			break;
+#endif
 		case '?':
 		default:
 			usage();
