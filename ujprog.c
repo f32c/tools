@@ -431,7 +431,7 @@ shutdown_usb(void)
 		return (res);
 	}
 
-	res = FT_SetLatencyTimer(ftHandle, 10);
+	res = FT_SetLatencyTimer(ftHandle, 20);
 	if (res < 0) {
 		fprintf(stderr, "FT_SetLatencyTimer() failed\n");
 		return (res);
@@ -555,7 +555,7 @@ shutdown_usb(void)
 		return (res);
 	}
 
-	res = ftdi_set_latency_timer(&fc, 1);
+	res = ftdi_set_latency_timer(&fc, 20);
 	if (res < 0) {
 		fprintf(stderr, "ftdi_set_latency_timer() failed\n");
 		return (res);
@@ -597,6 +597,8 @@ set_tms_tdi(int tms, int tdi)
 
 	if (txpos > sizeof(txbuf)) {
 		fprintf(stderr, "txbuf overflow\n");
+		if (cable_hw == CABLE_HW_USB)
+			shutdown_usb();
 		exit (EXIT_FAILURE);
 	}
 }
@@ -1125,6 +1127,8 @@ set_state(int tgt_s) {
 	if (res) {
 		fprintf(stderr, "Don't know how to proceed: %s -> %s\n",
 		    STATE2STR(cur_s), STATE2STR(tgt_s));
+		if (cable_hw == CABLE_HW_USB)
+			shutdown_usb();
 		exit (1);
 	}
 
@@ -1228,9 +1232,9 @@ exec_svf_tokenized(int tokc, char *tokv[])
 		set_state(str2tapstate(tokv[1]));
 		i = delay_ms * (USB_BAUDS / 2000);
 #ifdef USE_PPI
-		/* libftdi is _very_ slow in sync mode on FreeBSD */
+		/* libftdi is relatively slow in sync mode on FreeBSD */
 		if (port_mode == PORT_MODE_SYNC && i > USB_BUFLEN_SYNC / 2)
-			i /= 10;
+			i /= 2;
 #endif
 		if (i > repeat)
 			repeat = i;
