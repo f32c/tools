@@ -1,6 +1,6 @@
 /*++
 
-Copyright © 2001-2010 Future Technology Devices International Limited
+Copyright © 2001-2011 Future Technology Devices International Limited
 
 THIS SOFTWARE IS PROVIDED BY FUTURE TECHNOLOGY DEVICES INTERNATIONAL LIMITED "AS IS"
 AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
@@ -33,30 +33,6 @@ FTD2XX library definitions
 Environment:
 
 kernel & user mode
-
-Revision History:
-
-	13/03/01	awm		Created.
-	13/01/03	awm		Added device information support.
-	19/03/03	awm		Added FT_W32_CancelIo.
-	12/06/03	awm		Added FT_StopInTask and FT_RestartInTask.
-	18/09/03	awm		Added FT_SetResetPipeRetryCount.
-	10/10/03	awm		Added FT_ResetPort.
-	23/01/04	awm		Added support for open-by-location.
-	16/03/04	awm		Added support for FT2232C.
-	23/09/04	awm		Added support for FT232R.
-	20/10/04	awm		Added FT_CyclePort.
-	18/01/05	awm		Added FT_DEVICE_LIST_INFO_NODE type.
-	11/02/05	awm		Added LocId to FT_DEVICE_LIST_INFO_NODE.
-	25/08/05	awm		Added FT_SetDeadmanTimeout.
-	02/12/05	awm		Removed obsolete references.
-	05/12/05	awm		Added FT_GetVersion, FT_GetVersionEx.
-	08/09/06	awm		Added FT_W32_GetCommMask.
-	11/09/06	awm		Added FT_Rescan.
-	11/07/07	awm		Added support for FT2232H and FT4232H.
-	10/08/07	awm		Added flags definitions.
-	21/11/07	mja		Added FT_GetComPortNumber.
-	05/06/08	mja		Added EEPROM extensions for FT2232H.
 
 
 --*/
@@ -162,7 +138,7 @@ enum {
 //
 
 #define FT_STOP_BITS_1		(UCHAR) 0
-#define FT_STOP_BITS_2		(UCHAR) 1
+#define FT_STOP_BITS_2		(UCHAR) 2
 
 //
 // Parity
@@ -220,8 +196,92 @@ enum {
 	FT_DEVICE_2232C,
 	FT_DEVICE_232R,
 	FT_DEVICE_2232H,
-	FT_DEVICE_4232H
+	FT_DEVICE_4232H,
+	FT_DEVICE_232H,
+	FT_DEVICE_X_SERIES
 };
+
+//
+// Bit Modes
+//
+
+#define FT_BITMODE_RESET					0x00
+#define FT_BITMODE_ASYNC_BITBANG			0x01
+#define FT_BITMODE_MPSSE					0x02
+#define FT_BITMODE_SYNC_BITBANG				0x04
+#define FT_BITMODE_MCU_HOST					0x08
+#define FT_BITMODE_FAST_SERIAL				0x10
+#define FT_BITMODE_CBUS_BITBANG				0x20
+#define FT_BITMODE_SYNC_FIFO				0x40
+
+//
+// FT232R CBUS Options EEPROM values
+//
+
+#define FT_232R_CBUS_TXDEN					0x00	//	Tx Data Enable
+#define FT_232R_CBUS_PWRON					0x01	//	Power On
+#define FT_232R_CBUS_RXLED					0x02	//	Rx LED
+#define FT_232R_CBUS_TXLED					0x03	//	Tx LED
+#define FT_232R_CBUS_TXRXLED				0x04	//	Tx and Rx LED
+#define FT_232R_CBUS_SLEEP					0x05	//	Sleep
+#define FT_232R_CBUS_CLK48					0x06	//	48MHz clock
+#define FT_232R_CBUS_CLK24					0x07	//	24MHz clock
+#define FT_232R_CBUS_CLK12					0x08	//	12MHz clock
+#define FT_232R_CBUS_CLK6					0x09	//	6MHz clock
+#define FT_232R_CBUS_IOMODE					0x0A	//	IO Mode for CBUS bit-bang
+#define FT_232R_CBUS_BITBANG_WR				0x0B	//	Bit-bang write strobe
+#define FT_232R_CBUS_BITBANG_RD				0x0C	//	Bit-bang read strobe
+
+//
+// FT232H CBUS Options EEPROM values
+//
+
+#define FT_232H_CBUS_TRISTATE				0x00	//	Tristate
+#define FT_232H_CBUS_TXLED					0x01	//	Tx LED
+#define FT_232H_CBUS_RXLED					0x02	//	Rx LED
+#define FT_232H_CBUS_TXRXLED				0x03	//	Tx and Rx LED
+#define FT_232H_CBUS_PWREN					0x04	//	Power Enable
+#define FT_232H_CBUS_SLEEP					0x05	//	Sleep
+#define FT_232H_CBUS_DRIVE_0				0x06	//	Drive pin to logic 0
+#define FT_232H_CBUS_DRIVE_1				0x07	//	Drive pin to logic 1
+#define FT_232H_CBUS_IOMODE					0x08	//	IO Mode for CBUS bit-bang
+#define FT_232H_CBUS_TXDEN					0x09	//	Tx Data Enable
+#define FT_232H_CBUS_CLK30					0x0A	//	30MHz clock
+#define FT_232H_CBUS_CLK15					0x0B	//	15MHz clock
+#define FT_232H_CBUS_CLK7_5					0x0C	//	7.5MHz clock
+
+//
+// FT X Series CBUS Options EEPROM values
+//
+
+#define FT_X_SERIES_CBUS_TRISTATE			0x00	//	Tristate
+#define FT_X_SERIES_CBUS_RXLED				0x01	//	Tx LED
+#define FT_X_SERIES_CBUS_TXLED				0x02	//	Rx LED
+#define FT_X_SERIES_CBUS_TXRXLED			0x03	//	Tx and Rx LED
+#define FT_X_SERIES_CBUS_PWREN				0x04	//	Power Enable
+#define FT_X_SERIES_CBUS_SLEEP				0x05	//	Sleep
+#define FT_X_SERIES_CBUS_DRIVE_0			0x06	//	Drive pin to logic 0
+#define FT_X_SERIES_CBUS_DRIVE_1			0x07	//	Drive pin to logic 1
+#define FT_X_SERIES_CBUS_IOMODE				0x08	//	IO Mode for CBUS bit-bang
+#define FT_X_SERIES_CBUS_TXDEN				0x09	//	Tx Data Enable
+#define FT_X_SERIES_CBUS_CLK24				0x0A	//	24MHz clock
+#define FT_X_SERIES_CBUS_CLK12				0x0B	//	12MHz clock
+#define FT_X_SERIES_CBUS_CLK6				0x0C	//	6MHz clock
+#define FT_X_SERIES_CBUS_BCD_CHARGER		0x0D	//	Battery charger detected
+#define FT_X_SERIES_CBUS_BCD_CHARGER_N		0x0E	//	Battery charger detected inverted
+#define FT_X_SERIES_CBUS_I2C_TXE			0x0F	//	I2C Tx empty
+#define FT_X_SERIES_CBUS_I2C_RXF			0x10	//	I2C Rx full
+#define FT_X_SERIES_CBUS_VBUS_SENSE			0x11	//	Detect VBUS
+#define FT_X_SERIES_CBUS_BITBANG_WR			0x12	//	Bit-bang write strobe
+#define FT_X_SERIES_CBUS_BITBANG_RD			0x13	//	Bit-bang read strobe
+#define FT_X_SERIES_CBUS_TIMESTAMP			0x14	//	Toggle output when a USB SOF token is received
+#define FT_X_SERIES_CBUS_KEEP_AWAKE			0x15	//	
+
+
+// Driver types
+#define FT_DRIVER_TYPE_D2XX		0
+#define FT_DRIVER_TYPE_VCP		1
+
 
 
 #ifdef __cplusplus
@@ -432,7 +492,8 @@ extern "C" {
 		);
 
 	//
-	// structure to hold program data for FT_Program function
+	// structure to hold program data for FT_EE_Program, FT_EE_ProgramEx, FT_EE_Read 
+	// and FT_EE_ReadEx functions
 	//
 	typedef struct ft_program_data {
 
@@ -440,10 +501,11 @@ extern "C" {
 		DWORD Signature2;			// Header - must be 0xffffffff
 		DWORD Version;				// Header - FT_PROGRAM_DATA version
 		//			0 = original
-		//			1 = FT2232C extensions
+		//			1 = FT2232 extensions
 		//			2 = FT232R extensions
 		//			3 = FT2232H extensions
 		//			4 = FT4232H extensions
+		//			5 = FT232H extensions
 
 		WORD VendorId;				// 0x0403
 		WORD ProductId;				// 0x6001
@@ -540,17 +602,17 @@ extern "C" {
 		//
 		UCHAR PullDownEnable8;		// non-zero if pull down enabled
 		UCHAR SerNumEnable8;		// non-zero if serial number to be used
-		UCHAR ASlowSlew;			// non-zero if AL pins have slow slew
-		UCHAR ASchmittInput;		// non-zero if AL pins are Schmitt input
+		UCHAR ASlowSlew;			// non-zero if A pins have slow slew
+		UCHAR ASchmittInput;		// non-zero if A pins are Schmitt input
 		UCHAR ADriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
-		UCHAR BSlowSlew;			// non-zero if AH pins have slow slew
-		UCHAR BSchmittInput;		// non-zero if AH pins are Schmitt input
+		UCHAR BSlowSlew;			// non-zero if B pins have slow slew
+		UCHAR BSchmittInput;		// non-zero if B pins are Schmitt input
 		UCHAR BDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
-		UCHAR CSlowSlew;			// non-zero if BL pins have slow slew
-		UCHAR CSchmittInput;		// non-zero if BL pins are Schmitt input
+		UCHAR CSlowSlew;			// non-zero if C pins have slow slew
+		UCHAR CSchmittInput;		// non-zero if C pins are Schmitt input
 		UCHAR CDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
-		UCHAR DSlowSlew;			// non-zero if BH pins have slow slew
-		UCHAR DSchmittInput;		// non-zero if BH pins are Schmitt input
+		UCHAR DSlowSlew;			// non-zero if D pins have slow slew
+		UCHAR DSchmittInput;		// non-zero if D pins are Schmitt input
 		UCHAR DDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
 		UCHAR ARIIsTXDEN;			// non-zero if port A uses RI as RS485 TXDEN
 		UCHAR BRIIsTXDEN;			// non-zero if port B uses RI as RS485 TXDEN
@@ -560,7 +622,37 @@ extern "C" {
 		UCHAR BIsVCP8;				// non-zero if interface is to use VCP drivers
 		UCHAR CIsVCP8;				// non-zero if interface is to use VCP drivers
 		UCHAR DIsVCP8;				// non-zero if interface is to use VCP drivers
-
+		//
+		// Rev 9 (FT232H) Extensions
+		//
+		UCHAR PullDownEnableH;		// non-zero if pull down enabled
+		UCHAR SerNumEnableH;		// non-zero if serial number to be used
+		UCHAR ACSlowSlewH;			// non-zero if AC pins have slow slew
+		UCHAR ACSchmittInputH;		// non-zero if AC pins are Schmitt input
+		UCHAR ACDriveCurrentH;		// valid values are 4mA, 8mA, 12mA, 16mA
+		UCHAR ADSlowSlewH;			// non-zero if AD pins have slow slew
+		UCHAR ADSchmittInputH;		// non-zero if AD pins are Schmitt input
+		UCHAR ADDriveCurrentH;		// valid values are 4mA, 8mA, 12mA, 16mA
+		UCHAR Cbus0H;				// Cbus Mux control
+		UCHAR Cbus1H;				// Cbus Mux control
+		UCHAR Cbus2H;				// Cbus Mux control
+		UCHAR Cbus3H;				// Cbus Mux control
+		UCHAR Cbus4H;				// Cbus Mux control
+		UCHAR Cbus5H;				// Cbus Mux control
+		UCHAR Cbus6H;				// Cbus Mux control
+		UCHAR Cbus7H;				// Cbus Mux control
+		UCHAR Cbus8H;				// Cbus Mux control
+		UCHAR Cbus9H;				// Cbus Mux control
+		UCHAR IsFifoH;				// non-zero if interface is 245 FIFO
+		UCHAR IsFifoTarH;			// non-zero if interface is 245 FIFO CPU target
+		UCHAR IsFastSerH;			// non-zero if interface is Fast serial
+		UCHAR IsFT1248H;			// non-zero if interface is FT1248
+		UCHAR FT1248CpolH;			// FT1248 clock polarity - clock idle high (1) or clock idle low (0)
+		UCHAR FT1248LsbH;			// FT1248 data is LSB (1) or MSB (0)
+		UCHAR FT1248FlowControlH;	// FT1248 flow control enable
+		UCHAR IsVCPH;				// non-zero if interface is to use VCP drivers
+		UCHAR PowerSaveEnableH;		// non-zero if using ACBUS7 to save power for self-powered designs
+		
 	} FT_PROGRAM_DATA, *PFT_PROGRAM_DATA;
 
 	FTD2XX_API
@@ -615,6 +707,245 @@ extern "C" {
 		DWORD dwDataLen,
 		LPDWORD lpdwBytesRead
 		);
+
+
+	typedef struct ft_eeprom_header {
+		FT_DEVICE deviceType;		// FTxxxx device type to be programmed
+		// Device descriptor options
+		WORD VendorId;				// 0x0403
+		WORD ProductId;				// 0x6001
+		UCHAR SerNumEnable;			// non-zero if serial number to be used
+		// Config descriptor options
+		WORD MaxPower;				// 0 < MaxPower <= 500
+		UCHAR SelfPowered;			// 0 = bus powered, 1 = self powered
+		UCHAR RemoteWakeup;			// 0 = not capable, 1 = capable
+		// Hardware options
+		UCHAR PullDownEnable;		// non-zero if pull down in suspend enabled
+	} FT_EEPROM_HEADER, *PFT_EEPROM_HEADER;
+
+
+	// FT232B EEPROM structure for use with FT_EEPROM_Read and FT_EEPROM_Program
+	typedef struct ft_eeprom_232b {
+		// Common header
+		FT_EEPROM_HEADER common;	// common elements for all device EEPROMs
+	} FT_EEPROM_232B, *PFT_EEPROM_232B;
+
+
+	// FT2232 EEPROM structure for use with FT_EEPROM_Read and FT_EEPROM_Program
+	typedef struct ft_eeprom_2232 {
+		// Common header
+		FT_EEPROM_HEADER common;	// common elements for all device EEPROMs
+		// Drive options
+		UCHAR AIsHighCurrent;		// non-zero if interface is high current
+		UCHAR BIsHighCurrent;		// non-zero if interface is high current
+		// Hardware options
+		UCHAR AIsFifo;				// non-zero if interface is 245 FIFO
+		UCHAR AIsFifoTar;			// non-zero if interface is 245 FIFO CPU target
+		UCHAR AIsFastSer;			// non-zero if interface is Fast serial
+		UCHAR BIsFifo;				// non-zero if interface is 245 FIFO
+		UCHAR BIsFifoTar;			// non-zero if interface is 245 FIFO CPU target
+		UCHAR BIsFastSer;			// non-zero if interface is Fast serial
+		// Driver option
+		UCHAR ADriverType;			// 
+		UCHAR BDriverType;			// 
+	} FT_EEPROM_2232, *PFT_EEPROM_2232;
+
+
+	// FT232R EEPROM structure for use with FT_EEPROM_Read and FT_EEPROM_Program
+	typedef struct ft_eeprom_232r {
+		// Common header
+		FT_EEPROM_HEADER common;	// common elements for all device EEPROMs
+		// Drive options
+		UCHAR IsHighCurrent;		// non-zero if interface is high current
+		// Hardware options
+		UCHAR UseExtOsc;			// Use External Oscillator
+		UCHAR InvertTXD;			// non-zero if invert TXD
+		UCHAR InvertRXD;			// non-zero if invert RXD
+		UCHAR InvertRTS;			// non-zero if invert RTS
+		UCHAR InvertCTS;			// non-zero if invert CTS
+		UCHAR InvertDTR;			// non-zero if invert DTR
+		UCHAR InvertDSR;			// non-zero if invert DSR
+		UCHAR InvertDCD;			// non-zero if invert DCD
+		UCHAR InvertRI;				// non-zero if invert RI
+		UCHAR Cbus0;				// Cbus Mux control
+		UCHAR Cbus1;				// Cbus Mux control
+		UCHAR Cbus2;				// Cbus Mux control
+		UCHAR Cbus3;				// Cbus Mux control
+		UCHAR Cbus4;				// Cbus Mux control
+		// Driver option
+		UCHAR DriverType;			// 
+	} FT_EEPROM_232R, *PFT_EEPROM_232R;
+
+
+	// FT2232H EEPROM structure for use with FT_EEPROM_Read and FT_EEPROM_Program
+	typedef struct ft_eeprom_2232h {
+		// Common header
+		FT_EEPROM_HEADER common;	// common elements for all device EEPROMs
+		// Drive options
+		UCHAR ALSlowSlew;			// non-zero if AL pins have slow slew
+		UCHAR ALSchmittInput;		// non-zero if AL pins are Schmitt input
+		UCHAR ALDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
+		UCHAR AHSlowSlew;			// non-zero if AH pins have slow slew
+		UCHAR AHSchmittInput;		// non-zero if AH pins are Schmitt input
+		UCHAR AHDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
+		UCHAR BLSlowSlew;			// non-zero if BL pins have slow slew
+		UCHAR BLSchmittInput;		// non-zero if BL pins are Schmitt input
+		UCHAR BLDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
+		UCHAR BHSlowSlew;			// non-zero if BH pins have slow slew
+		UCHAR BHSchmittInput;		// non-zero if BH pins are Schmitt input
+		UCHAR BHDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
+		// Hardware options
+		UCHAR AIsFifo;				// non-zero if interface is 245 FIFO
+		UCHAR AIsFifoTar;			// non-zero if interface is 245 FIFO CPU target
+		UCHAR AIsFastSer;			// non-zero if interface is Fast serial
+		UCHAR BIsFifo;				// non-zero if interface is 245 FIFO
+		UCHAR BIsFifoTar;			// non-zero if interface is 245 FIFO CPU target
+		UCHAR BIsFastSer;			// non-zero if interface is Fast serial
+		UCHAR PowerSaveEnable;		// non-zero if using BCBUS7 to save power for self-powered designs
+		// Driver option
+		UCHAR ADriverType;			// 
+		UCHAR BDriverType;			// 
+	} FT_EEPROM_2232H, *PFT_EEPROM_2232H;
+
+
+	// FT4232H EEPROM structure for use with FT_EEPROM_Read and FT_EEPROM_Program
+	typedef struct ft_eeprom_4232h {
+		// Common header
+		FT_EEPROM_HEADER common;	// common elements for all device EEPROMs
+		// Drive options
+		UCHAR ASlowSlew;			// non-zero if A pins have slow slew
+		UCHAR ASchmittInput;		// non-zero if A pins are Schmitt input
+		UCHAR ADriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
+		UCHAR BSlowSlew;			// non-zero if B pins have slow slew
+		UCHAR BSchmittInput;		// non-zero if B pins are Schmitt input
+		UCHAR BDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
+		UCHAR CSlowSlew;			// non-zero if C pins have slow slew
+		UCHAR CSchmittInput;		// non-zero if C pins are Schmitt input
+		UCHAR CDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
+		UCHAR DSlowSlew;			// non-zero if D pins have slow slew
+		UCHAR DSchmittInput;		// non-zero if D pins are Schmitt input
+		UCHAR DDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
+		// Hardware options
+		UCHAR ARIIsTXDEN;			// non-zero if port A uses RI as RS485 TXDEN
+		UCHAR BRIIsTXDEN;			// non-zero if port B uses RI as RS485 TXDEN
+		UCHAR CRIIsTXDEN;			// non-zero if port C uses RI as RS485 TXDEN
+		UCHAR DRIIsTXDEN;			// non-zero if port D uses RI as RS485 TXDEN
+		// Driver option
+		UCHAR ADriverType;			// 
+		UCHAR BDriverType;			// 
+		UCHAR CDriverType;			// 
+		UCHAR DDriverType;			// 
+	} FT_EEPROM_4232H, *PFT_EEPROM_4232H;
+
+
+	// FT232H EEPROM structure for use with FT_EEPROM_Read and FT_EEPROM_Program
+	typedef struct ft_eeprom_232h {
+		// Common header
+		FT_EEPROM_HEADER common;	// common elements for all device EEPROMs
+		// Drive options
+		UCHAR ACSlowSlew;			// non-zero if AC bus pins have slow slew
+		UCHAR ACSchmittInput;		// non-zero if AC bus pins are Schmitt input
+		UCHAR ACDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
+		UCHAR ADSlowSlew;			// non-zero if AD bus pins have slow slew
+		UCHAR ADSchmittInput;		// non-zero if AD bus pins are Schmitt input
+		UCHAR ADDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
+		// CBUS options
+		UCHAR Cbus0;				// Cbus Mux control
+		UCHAR Cbus1;				// Cbus Mux control
+		UCHAR Cbus2;				// Cbus Mux control
+		UCHAR Cbus3;				// Cbus Mux control
+		UCHAR Cbus4;				// Cbus Mux control
+		UCHAR Cbus5;				// Cbus Mux control
+		UCHAR Cbus6;				// Cbus Mux control
+		UCHAR Cbus7;				// Cbus Mux control
+		UCHAR Cbus8;				// Cbus Mux control
+		UCHAR Cbus9;				// Cbus Mux control
+		// FT1248 options
+		UCHAR FT1248Cpol;			// FT1248 clock polarity - clock idle high (1) or clock idle low (0)
+		UCHAR FT1248Lsb;			// FT1248 data is LSB (1) or MSB (0)
+		UCHAR FT1248FlowControl;	// FT1248 flow control enable
+		// Hardware options
+		UCHAR IsFifo;				// non-zero if interface is 245 FIFO
+		UCHAR IsFifoTar;			// non-zero if interface is 245 FIFO CPU target
+		UCHAR IsFastSer;			// non-zero if interface is Fast serial
+		UCHAR IsFT1248	;			// non-zero if interface is FT1248
+		UCHAR PowerSaveEnable;		// 
+		// Driver option
+		UCHAR DriverType;			// 
+	} FT_EEPROM_232H, *PFT_EEPROM_232H;
+
+
+	// FT X Series EEPROM structure for use with FT_EEPROM_Read and FT_EEPROM_Program
+	typedef struct ft_eeprom_x_series {
+		// Common header
+		FT_EEPROM_HEADER common;	// common elements for all device EEPROMs
+		// Drive options
+		UCHAR ACSlowSlew;			// non-zero if AC bus pins have slow slew
+		UCHAR ACSchmittInput;		// non-zero if AC bus pins are Schmitt input
+		UCHAR ACDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
+		UCHAR ADSlowSlew;			// non-zero if AD bus pins have slow slew
+		UCHAR ADSchmittInput;		// non-zero if AD bus pins are Schmitt input
+		UCHAR ADDriveCurrent;		// valid values are 4mA, 8mA, 12mA, 16mA
+		// CBUS options
+		UCHAR Cbus0;				// Cbus Mux control
+		UCHAR Cbus1;				// Cbus Mux control
+		UCHAR Cbus2;				// Cbus Mux control
+		UCHAR Cbus3;				// Cbus Mux control
+		UCHAR Cbus4;				// Cbus Mux control
+		UCHAR Cbus5;				// Cbus Mux control
+		UCHAR Cbus6;				// Cbus Mux control
+		// UART signal options
+		UCHAR InvertTXD;			// non-zero if invert TXD
+		UCHAR InvertRXD;			// non-zero if invert RXD
+		UCHAR InvertRTS;			// non-zero if invert RTS
+		UCHAR InvertCTS;			// non-zero if invert CTS
+		UCHAR InvertDTR;			// non-zero if invert DTR
+		UCHAR InvertDSR;			// non-zero if invert DSR
+		UCHAR InvertDCD;			// non-zero if invert DCD
+		UCHAR InvertRI;				// non-zero if invert RI
+		// Battery Charge Detect options
+		UCHAR BCDEnable;			// Enable Battery Charger Detection
+		UCHAR BCDForceCbusPWREN;	// asserts the power enable signal on CBUS when charging port detected
+		UCHAR BCDDisableSleep;		// forces the device never to go into sleep mode
+		// I2C options
+		WORD I2CSlaveAddress;		// I2C slave device address
+		DWORD I2CDeviceId;			// I2C device ID
+		UCHAR I2CDisableSchmitt;	// Disable I2C Schmitt trigger
+		// FT1248 options
+		UCHAR FT1248Cpol;			// FT1248 clock polarity - clock idle high (1) or clock idle low (0)
+		UCHAR FT1248Lsb;			// FT1248 data is LSB (1) or MSB (0)
+		UCHAR FT1248FlowControl;	// FT1248 flow control enable
+		// Hardware options
+		UCHAR RS485EchoSuppress;	// 
+		UCHAR PowerSaveEnable;		// 
+		// Driver option
+		UCHAR DriverType;			// 
+	} FT_EEPROM_X_SERIES, *PFT_EEPROM_X_SERIES;
+
+
+	FTD2XX_API
+		FT_STATUS WINAPI FT_EEPROM_Read(
+		FT_HANDLE ftHandle,
+		void *eepromData,
+		DWORD eepromDataSize,
+		char *Manufacturer,
+		char *ManufacturerId,
+		char *Description,
+		char *SerialNumber
+		);
+
+
+	FTD2XX_API
+		FT_STATUS WINAPI FT_EEPROM_Program(
+		FT_HANDLE ftHandle,
+		void *eepromData,
+		DWORD eepromDataSize,
+		char *Manufacturer,
+		char *ManufacturerId,
+		char *Description,
+		char *SerialNumber
+		);
+
 
 	FTD2XX_API
 		FT_STATUS WINAPI FT_SetLatencyTimer(
@@ -966,6 +1297,38 @@ extern "C" {
 		FT_STATUS WINAPI FT_GetComPortNumber(
 		FT_HANDLE ftHandle,
 		LPLONG	lpdwComPortNumber
+		);
+
+
+	//
+	// FT232H additional EEPROM functions
+	//
+
+	FTD2XX_API
+		FT_STATUS WINAPI FT_EE_ReadConfig(
+		FT_HANDLE ftHandle,
+		UCHAR ucAddress,
+		PUCHAR pucValue
+		);
+
+	FTD2XX_API
+		FT_STATUS WINAPI FT_EE_WriteConfig(
+		FT_HANDLE ftHandle,
+		UCHAR ucAddress,
+		UCHAR ucValue
+		);
+
+	FTD2XX_API
+		FT_STATUS WINAPI FT_EE_ReadECC(
+		FT_HANDLE ftHandle,
+		UCHAR ucOption,
+		LPWORD lpwValue
+		);
+
+	FTD2XX_API
+		FT_STATUS WINAPI FT_GetQueueStatusEx(
+		FT_HANDLE ftHandle,
+		DWORD *dwRxBytes
 		);
 
 
