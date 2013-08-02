@@ -1,10 +1,9 @@
 /*
  * FTDI232R USB JTAG programmer
  *
- * v 1.00 2011/10/17
+ * v 1.02 2013/08/03
  *
- * (c) 2011 University of Zagreb
- * (c) 2010, 2011 Marko Zec <zec@fer.hr>
+ * (c) 2010 - 2013 Marko Zec <zec@fer.hr>
  *
  * This software is NOT freely redistributable, neither in source nor in
  * binary format.  Usage in binary format permitted exclusively for
@@ -16,8 +15,6 @@
  * - WIN32: check for USB device string description
  *
  * - Cryptographically bind USB serial number with FTDI chip ID
- *
- * - save / restore UART port settings (baudrate, latency) on entry / exit.
  *
  * - JTAG scan / identify chain on entry.
  *
@@ -190,7 +187,7 @@ static int progress_perc = 0;
 
 #ifdef WIN32
 static FT_HANDLE ftHandle;		/* USB port handle */
-static int quick_mode;
+static int quick_mode = 1;
 #else
 static struct ftdi_context fc;	/* USB port handle */
 #ifdef USE_PPI
@@ -260,7 +257,7 @@ set_port_mode(int mode)
 		 * buffers to drain first.
 		 */
 		if (port_mode != PORT_MODE_SYNC)
-			ms_sleep(20);
+			ms_sleep(10);
 
 		res = FT_SetBitMode(ftHandle,
 #else
@@ -274,9 +271,11 @@ set_port_mode(int mode)
 
 		/* Flush any stale RX buffers */
 #ifdef WIN32
-		FT_W32_PurgeComm(ftHandle, PURGE_RXABORT);
-		ms_sleep(20);
-		FT_Purge(ftHandle, FT_PURGE_RX);
+		for (res = 0; res < 2; res++) {
+			do {} while (FT_StopInTask(ftHandle) != FT_OK);
+			FT_Purge(ftHandle, FT_PURGE_RX);
+			do {} while (FT_RestartInTask(ftHandle) != FT_OK);
+		}
 #else
 		do {
 			res = ftdi_read_data(&fc, &txbuf[0], sizeof(txbuf));
@@ -422,7 +421,7 @@ shutdown_usb(void)
 	}
 
 	/* Allow for the USB FIFO to drain, just in case. */
-	ms_sleep(1);
+	ms_sleep(10);
 
 	/* Clean up */
 	res = set_port_mode(PORT_MODE_UART);
@@ -2046,7 +2045,7 @@ usage(void)
 	    "Usage: ujprog [-d%s] [-j sram|flash] file\n",
 #endif
 #ifdef WIN32
-	    "q"
+	    "s"
 #else
 	    ""
 #endif
@@ -2062,10 +2061,10 @@ main(int argc, char *argv[])
 	int jed_target = JED_TGT_SRAM;
 	int debug = 0;
 
-	fprintf(stderr, "ULX2S JTAG programmer v 1.01 2012/12/05 (zec)\n");
+	fprintf(stderr, "ULX2S JTAG programmer v 1.02 2013/08/03 (zec)\n");
 
 #ifdef WIN32
-#define OPTS	"qdc:j:"
+#define OPTS	"sdc:j:"
 #else
 #define OPTS	"dc:j:"
 #endif
@@ -2097,8 +2096,8 @@ main(int argc, char *argv[])
 			}
 			break;
 #ifdef WIN32
-		case 'q':
-			quick_mode = 1;
+		case 's':
+			quick_mode = 0;
 			break;
 #endif
 		case '?':
@@ -2142,6 +2141,8 @@ main(int argc, char *argv[])
 		fprintf(stderr, "Cannot find JTAG cable.\n");
 		exit (EXIT_FAILURE);
 	}
+
+#ifndef WIN32
 	if (cable_hw == CABLE_HW_USB)
 		fprintf(stderr, "Using USB JTAG cable.\n");
 	else
@@ -2150,6 +2151,7 @@ main(int argc, char *argv[])
 #else
 		fprintf(stderr, "Parallel port JTAG cable not supported!\n");
 #endif
+#endif /* !WIN32 */
 
 	tstart = ms_uptime();
 	last_ledblink_ms = tstart;
@@ -2159,7 +2161,6 @@ main(int argc, char *argv[])
 	set_state(IDLE);
 	set_state(RESET);
 
-	/* XXX tu kojiput crkne na WIN32 !!! */
 	commit(1);
 
 	if (argc == 1) {
