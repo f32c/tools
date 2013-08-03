@@ -239,8 +239,9 @@ set_port_mode(int mode)
 	if (need_led_blink) {
 		need_led_blink = 0;
 		led_state ^= USB_CBUS_LED;
-		fprintf(stderr, "\rProgramming: %d%% %c ",
+		printf("\rProgramming: %d%% %c ",
 		    progress_perc, statc[blinker_phase]);
+		fflush(stdout);
 		blinker_phase = (blinker_phase + 1) & 0x3;
 	}
 
@@ -358,7 +359,7 @@ setup_usb(void)
 		    "FT_GetDeviceInfo() found incompatible device\n");
 		return (-1);
 	}
-	fprintf(stderr, "Using USB cable: %s\n", Description);
+	printf("Using USB cable: %s\n", Description);
     
 	res = FT_SetBaudRate(ftHandle, USB_BAUDS);
 	if (res != FT_OK) {
@@ -2038,7 +2039,7 @@ static void
 usage(void)
 {
 
-	fprintf(stderr,
+	printf(
 #ifdef USE_PPI
 	    "Usage: ujprog [-d%s] [-c usb|ppi] [-j sram|flash] file\n",
 #else
@@ -2061,7 +2062,7 @@ main(int argc, char *argv[])
 	int jed_target = JED_TGT_SRAM;
 	int debug = 0;
 
-	fprintf(stderr, "ULX2S JTAG programmer v 1.02 2013/08/03 (zec)\n");
+	printf("ULX2S JTAG programmer v 1.02 2013/08/03 (zec)\n");
 
 #ifdef WIN32
 #define OPTS	"sdc:j:"
@@ -2144,12 +2145,12 @@ main(int argc, char *argv[])
 
 #ifndef WIN32
 	if (cable_hw == CABLE_HW_USB)
-		fprintf(stderr, "Using USB JTAG cable.\n");
+		printf("Using USB JTAG cable.\n");
 	else
 #ifdef USE_PPI
-		fprintf(stderr, "Using parallel port JTAG cable.\n");
+		printf("Using parallel port JTAG cable.\n");
 #else
-		fprintf(stderr, "Parallel port JTAG cable not supported!\n");
+		printf("Parallel port JTAG cable not supported!\n");
 #endif
 #endif /* !WIN32 */
 
@@ -2178,7 +2179,7 @@ main(int argc, char *argv[])
 
 	tend = ms_uptime();
 	if (res == 0) {
-		fprintf(stderr, "\rProgramming: 100%%  ");
+		printf("\rProgramming: 100%%  ");
 		printf("\nCompleted in %.2f seconds.\n",
 		    (tend - tstart) / 1000.0);
 	} else
