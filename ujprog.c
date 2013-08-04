@@ -2056,6 +2056,25 @@ usage(void)
 
 
 static int
+gets1(char *cp, int size)
+{
+	int got;
+
+	system("stty echo icanon iexten icrnl");
+	fcntl(0, F_SETFL, 0);
+	fflush(stdout);
+	got = read(0, cp, size);
+	fcntl(0, F_SETFL, O_NONBLOCK);
+	system("stty -echo -icanon -iexten -icrnl");
+	if (got > 0) {
+		cp[--got] = 0;
+	}
+
+	return (got);
+}
+
+
+static int
 prog(char *fname, int jed_target, int debug)
 {
 	int res, c, tstart, tend;
@@ -2110,8 +2129,10 @@ term_emul(void)
 #else
 	int rx_cnt, tx_cnt;
 #endif
+	int key_phase = 1; /* 0 .. normal; 1 .. CR; 2 .. CR + ~ */
 	int c;
-	int done = 0;
+	int infile = -1;
+	char argbuf[256];
 	
 	printf("Entering terminal emulation mode using %d bauds\n", bauds);
 
@@ -2154,9 +2175,43 @@ term_emul(void)
 		while (read(0, &txbuf[tx_cnt], 1) > 0) {
 			c = txbuf[tx_cnt];
 #endif
+			if (key_phase == 2) {
+				switch (c) {
+				case '?':
+					printf("~?\n"
+					    " ~>	send file\n"
+					    " ~.	exit from ujprog\n"
+					    " ~?	get this summary\n"
+					);
+					continue;
+				case '.':
+					goto done;
+				case '>':
+					printf("~>Local file name? ");
+					gets1(argbuf, sizeof(argbuf));
+					infile = open(argbuf, O_RDONLY);
+					if (infile < 0)
+						printf("%s: cannot open\n",
+						    argbuf);
+					key_phase = 0;
+					continue;
+				default:
+					if (c != '~') {
+						txbuf[tx_cnt] = '~';
+						tx_cnt++;
+						txbuf[tx_cnt] = c;
+					}
+					key_phase = 0;
+					break;
+				}
+			}
+			if (key_phase == 1 && c == '~') {
+				key_phase = 2;
+				continue;
+			}
+			if (c == 13)
+				key_phase = 1;
 			tx_cnt++;
-			if (c == 27)
-				done++;
 		}
 		if (tx_cnt) {
 #ifdef WIN32
@@ -2179,7 +2234,10 @@ term_emul(void)
 		}
 		if (rx_cnt == 0)
 			ms_sleep(10);
-	} while (done < 3);
+	} while (1);
+
+done:
+	printf("\n");
 
 	/* Restore special key processing on console input. */
 #ifdef WIN32
