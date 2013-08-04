@@ -183,6 +183,7 @@ static int last_ledblink_ms;	/* Last time we toggled the CBUS LED */
 static int led_state;		/* CBUS LED indicator state */
 static int blinker_phase = 0;
 static int progress_perc = 0;
+static int bauds = 115200;
 
 
 #ifdef WIN32
@@ -2098,8 +2099,9 @@ prog(char *fname, int jed_target, int debug)
 
 
 static int
-term_emul(bauds)
+term_emul(void)
 {
+#ifdef WIN32
 	DWORD saved_cons_mode;
 	DWORD rx_cnt, tx_cnt, ev_stat;
 	HANDLE cons_in = GetStdHandle(STD_INPUT_HANDLE);
@@ -2107,11 +2109,13 @@ term_emul(bauds)
 	CONSOLE_CURSOR_INFO cursor_info;
 	int c, i, busy;
 	int done = 0;
+#endif
 	
 	printf("Entering terminal emulation mode using %d bauds\n", bauds);
 
-	FT_SetLatencyTimer(ftHandle, 20);
 	set_port_mode(PORT_MODE_UART);
+#ifdef WIN32
+	FT_SetLatencyTimer(ftHandle, 20);
 	FT_SetBaudRate(ftHandle, bauds);
 	FT_SetDataCharacteristics(ftHandle, FT_BITS_8, FT_STOP_BITS_1,
 	    FT_PARITY_NONE);
@@ -2126,7 +2130,15 @@ term_emul(bauds)
 	cursor_info.bVisible = 1;
 	cursor_info.dwSize = 100;
 	SetConsoleCursorInfo(cons_out, &cursor_info);
+#else
+	ftdi_set_latency_timer(&fc, 20);
+	ftdi_set_baudrate(&fc, bauds);
+	ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
+	ftdi_setflowctrl(&fc, SIO_DISABLE_FLOW_CTRL);
+	ftdi_usb_purge_buffers(&fc);
+#endif
 
+#ifdef WIN32
 	do {
 		tx_cnt = 0;
 		while (kbhit()) {
@@ -2149,7 +2161,9 @@ term_emul(bauds)
 		if (rx_cnt == 0)
 			ms_sleep(10);
 	} while (done < 3);
+#endif
 
+#ifdef WIN32
 	/* Restore special key processing on console input. */
 	SetConsoleMode(cons_in, saved_cons_mode);
 	cursor_info.bVisible = 1;
@@ -2157,6 +2171,9 @@ term_emul(bauds)
 	SetConsoleCursorInfo(cons_out, &cursor_info);
 
 	FT_SetLatencyTimer(ftHandle, 1);
+#else
+	ftdi_set_latency_timer(&fc, 1);
+#endif
 
 	return (1);
 }
@@ -2169,7 +2186,6 @@ main(int argc, char *argv[])
 	int jed_target = JED_TGT_SRAM;
 	int terminal = 0;
 	int debug = 0;
-	int bauds = 115200;
 	int c;
 
 	printf("ULX2S JTAG programmer v 1.02 2013/08/03 (zec)\n");
@@ -2270,7 +2286,7 @@ main(int argc, char *argv[])
 	do {
 		if (argc)
 			prog(argv[0], jed_target, debug);
-	} while (terminal && term_emul(bauds) == 0);
+	} while (terminal && term_emul() == 0);
 
 	if (cable_hw == CABLE_HW_USB)
 		shutdown_usb();
