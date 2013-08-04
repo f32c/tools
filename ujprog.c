@@ -2054,38 +2054,154 @@ usage(void)
 }
 
 
+static int
+prog(char *fname, int jed_target, int debug)
+{
+	int res, c, tstart, tend;
+
+	tstart = ms_uptime();
+	last_ledblink_ms = tstart;
+
+	/* Move TAP into RESET state. */
+	set_port_mode(PORT_MODE_ASYNC);
+	set_state(IDLE);
+	set_state(RESET);
+
+	commit(1);
+
+	c = strlen(fname) - 4;
+	if (c < 0) {
+		usage();
+		exit (EXIT_FAILURE);
+	}
+	if (strcasecmp(&fname[c], ".jed") == 0)
+		res = exec_jedec_file(fname, jed_target, debug);
+	else
+		res = exec_svf_file(fname, debug);
+
+	/* Leave TAP in RESET state. */
+	set_port_mode(PORT_MODE_ASYNC);
+	set_state(IDLE);
+	set_state(RESET);
+	commit(1);
+
+	tend = ms_uptime();
+	if (res == 0) {
+		printf("\rProgramming: 100%%  ");
+		printf("\nCompleted in %.2f seconds.\n",
+		    (tend - tstart) / 1000.0);
+	} else
+		printf("\nFailed.\n");
+
+	return (res);
+}
+
+
+static int
+term_emul(bauds)
+{
+	DWORD saved_cons_mode;
+	DWORD rx_cnt, tx_cnt, ev_stat;
+	HANDLE cons_in = GetStdHandle(STD_INPUT_HANDLE);
+	HANDLE cons_out = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_CURSOR_INFO cursor_info;
+	int c, i, busy;
+	int done = 0;
+	
+	printf("Entering terminal emulation mode using %d bauds\n", bauds);
+
+	FT_SetLatencyTimer(ftHandle, 20);
+	set_port_mode(PORT_MODE_UART);
+	FT_SetBaudRate(ftHandle, bauds);
+	FT_SetDataCharacteristics(ftHandle, FT_BITS_8, FT_STOP_BITS_1,
+	    FT_PARITY_NONE);
+	FT_SetFlowControl(ftHandle, FT_FLOW_NONE, 0, 0);
+	do {} while (FT_StopInTask(ftHandle) != FT_OK);
+	FT_Purge(ftHandle, FT_PURGE_RX);
+	do {} while (FT_RestartInTask(ftHandle) != FT_OK);
+
+	/* Disable CTRL-C, XON/XOFF etc. processing on console input. */
+	GetConsoleMode(cons_in, &saved_cons_mode);
+	SetConsoleMode(cons_in, 0);
+	cursor_info.bVisible = 1;
+	cursor_info.dwSize = 100;
+	SetConsoleCursorInfo(cons_out, &cursor_info);
+
+	do {
+		tx_cnt = 0;
+		while (kbhit()) {
+			c = getch();
+			txbuf[tx_cnt] = c;
+			tx_cnt++;
+			if (c == 27)
+				done++;
+		}
+		if (tx_cnt) {
+			FT_Write(ftHandle, txbuf, tx_cnt, &tx_cnt);
+		}
+
+		FT_GetStatus(ftHandle, &rx_cnt, &ev_stat, &ev_stat);
+		if (rx_cnt) {
+			FT_Read(ftHandle, txbuf, rx_cnt, &rx_cnt);
+			fwrite(txbuf, rx_cnt, 1, stdout);
+			fflush(stdout);
+		}
+		if (rx_cnt == 0)
+			ms_sleep(10);
+	} while (done < 3);
+
+	/* Restore special key processing on console input. */
+	SetConsoleMode(cons_in, saved_cons_mode);
+	cursor_info.bVisible = 1;
+	cursor_info.dwSize = 20;
+	SetConsoleCursorInfo(cons_out, &cursor_info);
+
+	FT_SetLatencyTimer(ftHandle, 1);
+
+	return (1);
+}
+
+
 int
 main(int argc, char *argv[])
 {
 	int res = EXIT_FAILURE;
-	int c, tstart, tend;
 	int jed_target = JED_TGT_SRAM;
+	int terminal = 0;
 	int debug = 0;
+	int bauds = 115200;
+	int c;
 
 	printf("ULX2S JTAG programmer v 1.02 2013/08/03 (zec)\n");
 
 #ifdef WIN32
-#define OPTS	"sdc:j:"
+#define OPTS	"tsdc:j:b:"
 #else
-#define OPTS	"dc:j:"
+#define OPTS	"tdj:b:"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
 		case 'd':
 			debug = 1;
 			break;
+		case 't':
+			terminal = 1;
+			break;
+		case 'b':
+			bauds = atoi(optarg);
+			break;
+#ifdef USE_PPI
 		case 'c':
 			if (strcmp(optarg, "usb") == 0)
 				cable_hw = CABLE_HW_USB;
-#ifdef USE_PPI
 			else if (strcmp(optarg, "ppi") == 0)
 				cable_hw = CABLE_HW_PPI;
-#endif
 			else {
 				usage();
 				exit (EXIT_FAILURE);
 			}
 			break;
+#endif
 		case 'j':
 			if (strcmp(optarg, "sram") == 0)
 				jed_target = JED_TGT_SRAM;
@@ -2110,15 +2226,12 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (argc == 0) {
+	if (argc == 0 && terminal == 0) {
 		usage();
 		exit (EXIT_FAILURE);
 	};
 
-	c = strlen(argv[0]) - 4;
-	if (c < 0) {
-		usage();
-		exit (EXIT_FAILURE);
+	if (argc > 0) {
 	}
 
 	switch (cable_hw) {
@@ -2154,36 +2267,10 @@ main(int argc, char *argv[])
 #endif
 #endif /* !WIN32 */
 
-	tstart = ms_uptime();
-	last_ledblink_ms = tstart;
-
-	/* Move TAP into RESET state. */
-	set_port_mode(PORT_MODE_ASYNC);
-	set_state(IDLE);
-	set_state(RESET);
-
-	commit(1);
-
-	if (argc == 1) {
-		if (strcasecmp(&argv[0][c], ".jed") == 0)
-			res = exec_jedec_file(argv[0], jed_target, debug);
-		else
-			res = exec_svf_file(argv[0], debug);
-	}
-
-	/* Leave TAP in RESET state. */
-	set_port_mode(PORT_MODE_ASYNC);
-	set_state(IDLE);
-	set_state(RESET);
-	commit(1);
-
-	tend = ms_uptime();
-	if (res == 0) {
-		printf("\rProgramming: 100%%  ");
-		printf("\nCompleted in %.2f seconds.\n",
-		    (tend - tstart) / 1000.0);
-	} else
-		printf("\nFailed.\n");
+	do {
+		if (argc)
+			prog(argv[0], jed_target, debug);
+	} while (terminal && term_emul(bauds) == 0);
 
 	if (cable_hw == CABLE_HW_USB)
 		shutdown_usb();
