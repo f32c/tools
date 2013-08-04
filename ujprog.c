@@ -2107,9 +2107,11 @@ term_emul(void)
 	HANDLE cons_in = GetStdHandle(STD_INPUT_HANDLE);
 	HANDLE cons_out = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_CURSOR_INFO cursor_info;
-	int c, i, busy;
-	int done = 0;
+#else
+	int rx_cnt, tx_cnt;
 #endif
+	int c;
+	int done = 0;
 	
 	printf("Entering terminal emulation mode using %d bauds\n", bauds);
 
@@ -2136,42 +2138,58 @@ term_emul(void)
 	ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
 	ftdi_setflowctrl(&fc, SIO_DISABLE_FLOW_CTRL);
 	ftdi_usb_purge_buffers(&fc);
+
+	/* Disable CTRL-C, XON/XOFF etc. processing on console input. */
+	fcntl(0, F_SETFL, O_NONBLOCK);
+	system("stty -echo -isig -icanon -iexten -ixon -ixoff -icrnl");
 #endif
 
-#ifdef WIN32
 	do {
 		tx_cnt = 0;
+#ifdef WIN32
 		while (kbhit()) {
 			c = getch();
 			txbuf[tx_cnt] = c;
+#else
+		while (read(0, &txbuf[tx_cnt], 1) > 0) {
+			c = txbuf[tx_cnt];
+#endif
 			tx_cnt++;
 			if (c == 27)
 				done++;
 		}
 		if (tx_cnt) {
+#ifdef WIN32
 			FT_Write(ftHandle, txbuf, tx_cnt, &tx_cnt);
+#else
+			ftdi_write_data(&fc, txbuf, tx_cnt);
+#endif
 		}
 
+#ifdef WIN32
 		FT_GetStatus(ftHandle, &rx_cnt, &ev_stat, &ev_stat);
 		if (rx_cnt) {
 			FT_Read(ftHandle, txbuf, rx_cnt, &rx_cnt);
+#else
+		rx_cnt = ftdi_read_data(&fc, txbuf, 128);
+		if (rx_cnt) {
+#endif
 			fwrite(txbuf, rx_cnt, 1, stdout);
 			fflush(stdout);
 		}
 		if (rx_cnt == 0)
 			ms_sleep(10);
 	} while (done < 3);
-#endif
 
-#ifdef WIN32
 	/* Restore special key processing on console input. */
+#ifdef WIN32
 	SetConsoleMode(cons_in, saved_cons_mode);
 	cursor_info.bVisible = 1;
 	cursor_info.dwSize = 20;
 	SetConsoleCursorInfo(cons_out, &cursor_info);
-
 	FT_SetLatencyTimer(ftHandle, 1);
 #else
+	system("stty echo isig icanon iexten ixon ixoff icrnl");
 	ftdi_set_latency_timer(&fc, 1);
 #endif
 
