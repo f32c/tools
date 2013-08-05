@@ -2199,13 +2199,8 @@ term_emul(void)
 				close(infile);
 				infile = -1;
 				tx_cnt = 0;
-			} else {
+			} else
 				tx_cnt = res;
-				/* XXX: LF -> CR */
-				for (c = 0; c < tx_cnt; c++)
-					if (txbuf[c] == 10)
-						txbuf[c] = 13;
-			}
 		} else
 #ifdef WIN32
 		while (kbhit()) {
@@ -2219,7 +2214,7 @@ term_emul(void)
 				switch (c) {
 				case '?':
 					printf("~?\n"
-					    " ~>	send ASCII file\n"
+					    " ~>	send file\n"
 					    " ~b	change baudrate\n"
 					    " ~r	reprogram the FPGA\n"
 					    " ~.	exit from ujprog\n"
