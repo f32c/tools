@@ -2309,6 +2309,10 @@ term_emul(void)
 		rx_cnt = ftdi_read_data(&fc, txbuf, 128);
 		if (rx_cnt) {
 #endif
+			if (rx_cnt < 0) {
+				res = 1;
+				goto done;
+			}
 			fwrite(txbuf, rx_cnt, 1, stdout);
 			fflush(stdout);
 		}
