@@ -2156,7 +2156,7 @@ term_emul(void)
 	int rx_cnt, tx_cnt;
 #endif
 	int key_phase = 1; /* 0 .. normal; 1 .. CR; 2 .. CR + ~ */
-	int c;
+	int c, res;
 	int infile = -1;
 	char argbuf[256];
 	
@@ -2206,11 +2206,16 @@ term_emul(void)
 				case '?':
 					printf("~?\n"
 					    " ~>	send file\n"
+					    " ~r	reprogram the FPGA\n"
 					    " ~.	exit from ujprog\n"
 					    " ~?	get this summary\n"
 					);
 					continue;
+				case 'r':
+					res = 0;
+					goto done;
 				case '.':
+					res = 1;
 					goto done;
 				case '>':
 					printf("~>Local file name? ");
@@ -2273,12 +2278,14 @@ done:
 	cursor_info.dwSize = 20;
 	SetConsoleCursorInfo(cons_out, &cursor_info);
 	FT_SetLatencyTimer(ftHandle, 1);
+	FT_SetBaudRate(ftHandle, USB_BAUDS);
 #else
 	system("stty echo isig icanon iexten ixon ixoff icrnl");
 	ftdi_set_latency_timer(&fc, 1);
+	ftdi_set_baudrate(&fc, USB_BAUDS);
 #endif
 
-	return (1);
+	return (res);
 }
 
 
