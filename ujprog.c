@@ -2170,7 +2170,7 @@ term_emul(void)
 	    FT_PARITY_NONE);
 	FT_SetFlowControl(ftHandle, FT_FLOW_NONE, 0, 0);
 	do {} while (FT_StopInTask(ftHandle) != FT_OK);
-	msleep(100);
+	ms_sleep(50);
 	FT_Purge(ftHandle, FT_PURGE_RX);
 	do {} while (FT_RestartInTask(ftHandle) != FT_OK);
 
