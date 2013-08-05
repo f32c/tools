@@ -2206,6 +2206,7 @@ term_emul(void)
 				case '?':
 					printf("~?\n"
 					    " ~>	send file\n"
+					    " ~b	change baudrate\n"
 					    " ~r	reprogram the FPGA\n"
 					    " ~.	exit from ujprog\n"
 					    " ~?	get this summary\n"
@@ -2217,6 +2218,31 @@ term_emul(void)
 				case '.':
 					res = 1;
 					goto done;
+				case 'b':
+					printf("~>New baudrate? ");
+					fflush(stdout);
+					gets1(argbuf, sizeof(argbuf));
+					c = atoi(argbuf);
+					if (c > 0) {
+#ifdef WIN32
+						res = FT_SetBaudRate(ftHandle,
+						    c);
+						if (res == FT_OK) {
+#else
+						res = ftdi_set_baudrate(&fc,
+						    c);
+						if (res == 0) {
+#endif
+							bauds = c;
+							printf("new"
+							    " baudrate: %d\n",
+							    bauds);
+						} else
+							printf("%d: invalid"
+							    " baudrate\n");
+					}
+					key_phase = 0;
+					continue;
 				case '>':
 					printf("~>Local file name? ");
 					fflush(stdout);
