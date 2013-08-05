@@ -2269,6 +2269,8 @@ term_emul(void)
 			}
 			if (c == 13)
 				key_phase = 1;
+			else
+				key_phase = 0;
 			tx_cnt++;
 		}
 		if (tx_cnt) {
