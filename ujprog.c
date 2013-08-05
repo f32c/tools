@@ -2262,7 +2262,8 @@ term_emul(void)
 					    O_RDONLY | O_BINARY
 #else
 					    O_RDONLY
-#endif					    );
+#endif
+					    );
 					if (infile < 0)
 						printf("%s: cannot open\n",
 						    argbuf);
