@@ -2055,36 +2055,22 @@ usage(void)
 }
 
 
-#ifndef WIN32
-static void 
-gets1(char *cp, int size)
-{
-	int got;
-
-	system("stty echo icanon iexten icrnl");
-	fcntl(0, F_SETFL, 0);
-	fflush(stdout);
-	got = read(0, cp, size);
-	fcntl(0, F_SETFL, O_NONBLOCK);
-	system("stty -echo -icanon -iexten -icrnl");
-	if (got > 0) {
-		cp[--got] = 0;
-	}
-}
-#endif
-
-
 static int
 gets1(char *cp, int size)
 {
 	char *lp, *end;
-	int c;
+	char c;
 	int error = 0;
 
 	lp = cp;
 	end = cp + size - 1;
 	for (;;) {
+#ifdef WIN32
 		c = getch() & 0177;
+#else
+		while (read(0, &c, 1) < 0)
+			ms_sleep(10);
+#endif
 		switch (c) {
 		case 3:	/* CTRL + C */
 			error = -1;
@@ -2097,6 +2083,7 @@ gets1(char *cp, int size)
 		case '\177':
 			if (lp > cp) {
 				printf("%c \b", c);
+				fflush(stdout);
 				lp--;
 			}
 			continue;
@@ -2105,6 +2092,7 @@ gets1(char *cp, int size)
 		default:
 			if (lp < end) {
 				printf("%c", c);
+				fflush(stdout);
 				*lp++ = c;
 			}
 		}
@@ -2226,6 +2214,7 @@ term_emul(void)
 					goto done;
 				case '>':
 					printf("~>Local file name? ");
+					fflush(stdout);
 					gets1(argbuf, sizeof(argbuf));
 					infile = open(argbuf, O_RDONLY);
 					if (infile < 0)
