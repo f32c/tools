@@ -2148,12 +2148,12 @@ term_emul(void)
 {
 #ifdef WIN32
 	DWORD saved_cons_mode;
-	DWORD rx_cnt, tx_cnt, ev_stat;
+	DWORD rx_cnt, tx_cnt, ev_stat, sent;
 	HANDLE cons_in = GetStdHandle(STD_INPUT_HANDLE);
 	HANDLE cons_out = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_CURSOR_INFO cursor_info;
 #else
-	int rx_cnt, tx_cnt;
+	int rx_cnt, tx_cnt, sent;
 #endif
 	int key_phase = 1; /* 0 .. normal; 1 .. CR; 2 .. CR + ~ */
 	int c, res;
@@ -2193,6 +2193,20 @@ term_emul(void)
 
 	do {
 		tx_cnt = 0;
+		if (infile > 0) {
+			res = read(infile, txbuf, 2048);
+			if (res <= 0) {
+				close(infile);
+				infile = -1;
+				tx_cnt = 0;
+			} else {
+				tx_cnt = res;
+				/* XXX: LF -> CR */
+				for (c = 0; c < tx_cnt; c++)
+					if (txbuf[c] == 10)
+						txbuf[c] = 13;
+			}
+		} else
 #ifdef WIN32
 		while (kbhit()) {
 			c = getch();
@@ -2205,7 +2219,7 @@ term_emul(void)
 				switch (c) {
 				case '?':
 					printf("~?\n"
-					    " ~>	send file\n"
+					    " ~>	send ASCII file\n"
 					    " ~b	change baudrate\n"
 					    " ~r	reprogram the FPGA\n"
 					    " ~.	exit from ujprog\n"
@@ -2275,10 +2289,13 @@ term_emul(void)
 		}
 		if (tx_cnt) {
 #ifdef WIN32
-			FT_Write(ftHandle, txbuf, tx_cnt, &tx_cnt);
+			FT_Write(ftHandle, txbuf, tx_cnt, &sent);
 #else
-			ftdi_write_data(&fc, txbuf, tx_cnt);
+			sent = ftdi_write_data(&fc, txbuf, tx_cnt);
 #endif
+			if (sent != tx_cnt)
+				printf("XXX USB req %d sent %d\n",
+				    tx_cnt, sent);
 		}
 
 #ifdef WIN32
