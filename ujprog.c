@@ -2253,7 +2253,8 @@ term_emul(void)
 							    bauds);
 						} else
 							printf("%d: invalid"
-							    " baudrate\n");
+							    " baudrate\n",
+							    bauds);
 					}
 					key_phase = 0;
 					continue;
