@@ -2257,7 +2257,12 @@ term_emul(void)
 					printf("~>Local file name? ");
 					fflush(stdout);
 					gets1(argbuf, sizeof(argbuf));
-					infile = open(argbuf, O_RDONLY);
+					infile = open(argbuf,
+#ifdef WIN32
+					    O_RDONLY | O_BINARY
+#else
+					    O_RDONLY
+#endif					    );
 					if (infile < 0)
 						printf("%s: cannot open\n",
 						    argbuf);
