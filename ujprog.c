@@ -2055,7 +2055,8 @@ usage(void)
 }
 
 
-static int
+#ifndef WIN32
+static void 
 gets1(char *cp, int size)
 {
 	int got;
@@ -2069,8 +2070,45 @@ gets1(char *cp, int size)
 	if (got > 0) {
 		cp[--got] = 0;
 	}
+}
+#endif
 
-	return (got);
+
+static int
+gets1(char *cp, int size)
+{
+	char *lp, *end;
+	int c;
+	int error = 0;
+
+	lp = cp;
+	end = cp + size - 1;
+	for (;;) {
+		c = getch() & 0177;
+		switch (c) {
+		case 3:	/* CTRL + C */
+			error = -1;
+		case '\n':
+		case '\r':
+			printf("\n");
+			*lp = '\0';
+			return (error);
+		case '\b':
+		case '\177':
+			if (lp > cp) {
+				printf("%c \b", c);
+				lp--;
+			}
+			continue;
+		case '\0':
+			continue;
+		default:
+			if (lp < end) {
+				printf("%c", c);
+				*lp++ = c;
+			}
+		}
+	}
 }
 
 
