@@ -2170,6 +2170,7 @@ term_emul(void)
 	    FT_PARITY_NONE);
 	FT_SetFlowControl(ftHandle, FT_FLOW_NONE, 0, 0);
 	do {} while (FT_StopInTask(ftHandle) != FT_OK);
+	msleep(100);
 	FT_Purge(ftHandle, FT_PURGE_RX);
 	do {} while (FT_RestartInTask(ftHandle) != FT_OK);
 
@@ -2294,9 +2295,10 @@ term_emul(void)
 #else
 			sent = ftdi_write_data(&fc, txbuf, tx_cnt);
 #endif
-			if (sent != tx_cnt)
-				printf("XXX USB req %d sent %d\n",
-				    tx_cnt, sent);
+			if (sent != tx_cnt) {
+				res = 1;
+				goto done;
+			}
 		}
 
 #ifdef WIN32
@@ -2310,7 +2312,7 @@ term_emul(void)
 			fwrite(txbuf, rx_cnt, 1, stdout);
 			fflush(stdout);
 		}
-		if (rx_cnt == 0)
+		if (tx_cnt == 0 && rx_cnt == 0)
 			ms_sleep(10);
 	} while (1);
 
