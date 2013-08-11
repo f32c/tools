@@ -2042,16 +2042,11 @@ usage(void)
 
 	printf(
 #ifdef USE_PPI
-	    "Usage: ujprog [-td%s] [-c usb|ppi] [-j sram|flash] file\n",
+	    "Usage: ujprog [-j sram|flash] [-t] [-b bauds] [-c usb|ppi] file\n"
 #else
-	    "Usage: ujprog [-td%s] [-j sram|flash] file\n",
+	    "Usage: ujprog [-j sram|flash] [-t] [-b bauds] file\n"
 #endif
-#ifdef WIN32
-	    "s"
-#else
-	    ""
-#endif
-	    );
+	);
 }
 
 
