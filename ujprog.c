@@ -274,7 +274,9 @@ set_port_mode(int mode)
 		/* Flush any stale RX buffers */
 #ifdef WIN32
 		for (res = 0; res < 2; res++) {
-			do {} while (FT_StopInTask(ftHandle) != FT_OK);
+			do {
+				ms_sleep(1);
+			} while (FT_StopInTask(ftHandle) != FT_OK);
 			FT_Purge(ftHandle, FT_PURGE_RX);
 			do {} while (FT_RestartInTask(ftHandle) != FT_OK);
 		}
@@ -2153,6 +2155,7 @@ term_emul(void)
 	int key_phase = 1; /* 0 .. normal; 1 .. CR; 2 .. CR + ~ */
 	int c, res;
 	int infile = -1;
+	int sleep_t = 0;
 	char argbuf[256];
 	
 	printf("Entering terminal emulation mode using %d bauds\n", bauds);
@@ -2311,8 +2314,12 @@ term_emul(void)
 			fwrite(txbuf, rx_cnt, 1, stdout);
 			fflush(stdout);
 		}
-		if (tx_cnt == 0 && rx_cnt == 0)
-			ms_sleep(10);
+		if (tx_cnt == 0 && rx_cnt == 0) {
+			ms_sleep(sleep_t);
+			if (sleep_t < 20)
+				sleep_t++;
+		} else
+			sleep_t = 0;
 	} while (1);
 
 done:
@@ -2345,7 +2352,7 @@ main(int argc, char *argv[])
 	int debug = 0;
 	int c;
 
-	printf("ULX2S JTAG programmer v 1.02 2013/08/03 (zec)\n");
+	printf("ULX2S JTAG programmer v 1.03 2013/09/19 (zec)\n");
 
 #ifdef WIN32
 #define OPTS	"tsdc:j:b:"
