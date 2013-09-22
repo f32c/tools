@@ -2149,6 +2149,10 @@ term_emul(void)
 	HANDLE cons_in = GetStdHandle(STD_INPUT_HANDLE);
 	HANDLE cons_out = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_CURSOR_INFO cursor_info;
+	int prev_char = 0;
+	int char_rewrite = 0;
+	int esc_seqn = 0;
+	int i;
 #else
 	int rx_cnt, tx_cnt, sent;
 #endif
@@ -2311,7 +2315,58 @@ term_emul(void)
 				res = 1;
 				goto done;
 			}
+#ifdef WIN32
+			SetConsoleTextAttribute(cons_out,
+			    FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+			for (i = 0; i < rx_cnt; i++) {
+				c = txbuf[i];
+				if (c == 27) {
+					prev_char = 27;
+					continue;
+				}
+				if (prev_char == 27 && c == '[') {
+					esc_seqn = 1;
+					continue;
+				}
+				if (esc_seqn) {
+					if (c == 'J') {
+						system("cls");
+						SetConsoleMode(cons_in, 0);
+					}
+					esc_seqn = 0;
+					continue;
+				}
+				esc_seqn = 0;
+				if (c == 8) {
+					char_rewrite = 1;
+					fwrite(&c, 1, 1, stdout);
+				} else if (char_rewrite) {
+					if (prev_char == '_')
+						SetConsoleTextAttribute(
+						    cons_out,
+						    FOREGROUND_RED |
+						    FOREGROUND_GREEN |
+						    FOREGROUND_BLUE);
+					else
+						SetConsoleTextAttribute(
+						    cons_out,
+						    FOREGROUND_RED |
+						    FOREGROUND_GREEN |
+						    FOREGROUND_BLUE |
+						    FOREGROUND_INTENSITY);
+					fwrite(&c, 1, 1, stdout);
+					SetConsoleTextAttribute(cons_out,
+					    FOREGROUND_GREEN |
+					    FOREGROUND_INTENSITY);
+					char_rewrite = 0;
+				} else
+					fwrite(&c, 1, 1, stdout);
+				if (c != 8)
+					prev_char = c;
+			}
+#else
 			fwrite(txbuf, rx_cnt, 1, stdout);
+#endif
 			fflush(stdout);
 		}
 		if (tx_cnt == 0 && rx_cnt == 0) {
