@@ -1,7 +1,7 @@
 /*
  * FTDI232R USB JTAG programmer
  *
- * v 1.02 2013/08/03
+ * v 1.04 2013/09/23
  *
  * (c) 2010 - 2013 Marko Zec <zec@fer.hr>
  *
@@ -2347,7 +2347,7 @@ term_emul(void)
 						    FOREGROUND_RED |
 						    FOREGROUND_GREEN |
 						    FOREGROUND_BLUE);
-					else
+					else if (prev_char == c)
 						SetConsoleTextAttribute(
 						    cons_out,
 						    FOREGROUND_RED |
@@ -2407,7 +2407,7 @@ main(int argc, char *argv[])
 	int debug = 0;
 	int c;
 
-	printf("ULX2S JTAG programmer v 1.03 2013/09/19 (zec)\n");
+	printf("ULX2S JTAG programmer v 1.04 2013/09/23 (zec)\n");
 
 #ifdef WIN32
 #define OPTS	"tsdc:j:b:"
