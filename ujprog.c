@@ -2149,18 +2149,19 @@ term_emul(void)
 	HANDLE cons_in = GetStdHandle(STD_INPUT_HANDLE);
 	HANDLE cons_out = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_CURSOR_INFO cursor_info;
-	int prev_char = 0;
-	int char_rewrite = 0;
 	int esc_seqn = 0;
-	int i;
 #else
 	int rx_cnt, tx_cnt, sent;
+	char esc = 27;
 #endif
 	int key_phase = 1; /* 0 .. normal; 1 .. CR; 2 .. CR + ~ */
 	int c, res;
 	int infile = -1;
 	int sleep_t = 0;
 	char argbuf[256];
+	int prev_char = 0;
+	int char_rewrite = 0;
+	int i;
 	
 	printf("Entering terminal emulation mode using %d bauds\n", bauds);
 
@@ -2182,6 +2183,8 @@ term_emul(void)
 	cursor_info.bVisible = 1;
 	cursor_info.dwSize = 100;
 	SetConsoleCursorInfo(cons_out, &cursor_info);
+	SetConsoleTextAttribute(cons_out,
+	    FOREGROUND_GREEN | FOREGROUND_INTENSITY);
 #else
 	ftdi_set_latency_timer(&fc, 20);
 	ftdi_set_baudrate(&fc, bauds);
@@ -2315,11 +2318,9 @@ term_emul(void)
 				res = 1;
 				goto done;
 			}
-#ifdef WIN32
-			SetConsoleTextAttribute(cons_out,
-			    FOREGROUND_GREEN | FOREGROUND_INTENSITY);
 			for (i = 0; i < rx_cnt; i++) {
 				c = txbuf[i];
+#ifdef WIN32
 				if (c == 27) {
 					prev_char = 27;
 					continue;
@@ -2332,41 +2333,59 @@ term_emul(void)
 					if (c == 'J') {
 						system("cls");
 						SetConsoleMode(cons_in, 0);
+						SetConsoleTextAttribute(
+						    cons_out,
+						    FOREGROUND_GREEN |
+						    FOREGROUND_INTENSITY);
 					}
 					esc_seqn = 0;
 					continue;
 				}
 				esc_seqn = 0;
+#endif
 				if (c == 8) {
 					char_rewrite = 1;
 					fwrite(&c, 1, 1, stdout);
 				} else if (char_rewrite) {
-					if (prev_char == '_')
+					if (prev_char == '_') {
+#ifdef WIN32
 						SetConsoleTextAttribute(
 						    cons_out,
 						    FOREGROUND_RED |
 						    FOREGROUND_GREEN |
 						    FOREGROUND_BLUE);
-					else if (prev_char == c)
+#else
+						fwrite(&esc, 1, 1, stdout);
+						fwrite("[4m", 3, 1, stdout);
+#endif
+					} else if (prev_char == c) {
+#ifdef WIN32
 						SetConsoleTextAttribute(
 						    cons_out,
 						    FOREGROUND_RED |
 						    FOREGROUND_GREEN |
 						    FOREGROUND_BLUE |
 						    FOREGROUND_INTENSITY);
+#else
+						fwrite(&esc, 1, 1, stdout);
+						fwrite("[1m", 4, 1, stdout);
+#endif
+					}
 					fwrite(&c, 1, 1, stdout);
+#ifdef WIN32
 					SetConsoleTextAttribute(cons_out,
 					    FOREGROUND_GREEN |
 					    FOREGROUND_INTENSITY);
+#else
+					fwrite(&esc, 1, 1, stdout);
+					fwrite("[0m", 3, 1, stdout);
+#endif
 					char_rewrite = 0;
 				} else
 					fwrite(&c, 1, 1, stdout);
 				if (c != 8)
 					prev_char = c;
 			}
-#else
-			fwrite(txbuf, rx_cnt, 1, stdout);
-#endif
 			fflush(stdout);
 		}
 		if (tx_cnt == 0 && rx_cnt == 0) {
