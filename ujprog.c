@@ -2392,6 +2392,8 @@ term_emul(void)
 			ms_sleep(sleep_t);
 			if (sleep_t < 20)
 				sleep_t++;
+			if (sleep_t > 1)
+				char_rewrite = 0;
 		} else
 			sleep_t = 0;
 	} while (1);
