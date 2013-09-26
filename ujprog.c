@@ -1,7 +1,7 @@
 /*
  * FTDI232R USB JTAG programmer
  *
- * v 1.04 2013/09/23
+ * v 1.06 2013/09/26
  *
  * (c) 2010 - 2013 Marko Zec <zec@fer.hr>
  *
@@ -2149,7 +2149,8 @@ term_emul(void)
 	HANDLE cons_in = GetStdHandle(STD_INPUT_HANDLE);
 	HANDLE cons_out = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_CURSOR_INFO cursor_info;
-	int esc_seqn = 0;
+	CONSOLE_SCREEN_BUFFER_INFO screen_info;
+	int color0, cons_color;
 #else
 	int rx_cnt, tx_cnt, sent;
 	char esc = 27;
@@ -2160,7 +2161,8 @@ term_emul(void)
 	int sleep_t = 0;
 	char argbuf[256];
 	int prev_char = 0;
-	int char_rewrite = 0;
+	int esc_seqn = 0;
+	int esc_arg;
 	int i;
 	
 	printf("Entering terminal emulation mode using %d bauds\n", bauds);
@@ -2180,11 +2182,13 @@ term_emul(void)
 	/* Disable CTRL-C, XON/XOFF etc. processing on console input. */
 	GetConsoleMode(cons_in, &saved_cons_mode);
 	SetConsoleMode(cons_in, 0);
+	GetConsoleScreenBufferInfo(cons_in, &screen_info);
+	color0 = screen_info.wAttributes;
+	color0 = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
 	cursor_info.bVisible = 1;
 	cursor_info.dwSize = 100;
 	SetConsoleCursorInfo(cons_out, &cursor_info);
-	SetConsoleTextAttribute(cons_out,
-	    FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+	SetConsoleTextAttribute(cons_out, color0);
 #else
 	ftdi_set_latency_timer(&fc, 20);
 	ftdi_set_baudrate(&fc, bauds);
@@ -2320,71 +2324,43 @@ term_emul(void)
 			}
 			for (i = 0; i < rx_cnt; i++) {
 				c = txbuf[i];
-#ifdef WIN32
 				if (c == 27) {
 					prev_char = 27;
 					continue;
 				}
 				if (prev_char == 27 && c == '[') {
 					esc_seqn = 1;
+					esc_arg = 0;
 					continue;
 				}
 				if (esc_seqn) {
+					if (c >= '0' && c <= '9') {
+						esc_arg = esc_arg * 10 +
+						    c - '0';
+						continue;
+					}
+#ifdef WIN32
 					if (c == 'J') {
 						system("cls");
 						SetConsoleMode(cons_in, 0);
 						SetConsoleTextAttribute(
-						    cons_out,
-						    FOREGROUND_GREEN |
-						    FOREGROUND_INTENSITY);
+						    cons_out, cons_color);
+					} else if (c == 'm') {
+						cons_color = color0;
+						if (esc_arg == 1 ||
+						    esc_arg == 4) {
+							cons_color |=
+							    FOREGROUND_RED;
+						}
+						SetConsoleTextAttribute(
+						    cons_out, cons_color);
 					}
+#endif
 					esc_seqn = 0;
 					continue;
 				}
 				esc_seqn = 0;
-#endif
-				if (c == 8) {
-					char_rewrite = 1;
-					fwrite(&c, 1, 1, stdout);
-				} else if (char_rewrite) {
-					if (prev_char == '_') {
-#ifdef WIN32
-						SetConsoleTextAttribute(
-						    cons_out,
-						    FOREGROUND_RED |
-						    FOREGROUND_GREEN |
-						    FOREGROUND_BLUE);
-#else
-						fwrite(&esc, 1, 1, stdout);
-						fwrite("[4m", 3, 1, stdout);
-#endif
-					} else if (prev_char == c) {
-#ifdef WIN32
-						SetConsoleTextAttribute(
-						    cons_out,
-						    FOREGROUND_RED |
-						    FOREGROUND_GREEN |
-						    FOREGROUND_BLUE |
-						    FOREGROUND_INTENSITY);
-#else
-						fwrite(&esc, 1, 1, stdout);
-						fwrite("[1m", 4, 1, stdout);
-#endif
-					}
-					fwrite(&c, 1, 1, stdout);
-#ifdef WIN32
-					SetConsoleTextAttribute(cons_out,
-					    FOREGROUND_GREEN |
-					    FOREGROUND_INTENSITY);
-#else
-					fwrite(&esc, 1, 1, stdout);
-					fwrite("[0m", 3, 1, stdout);
-#endif
-					char_rewrite = 0;
-				} else
-					fwrite(&c, 1, 1, stdout);
-				if (c != 8)
-					prev_char = c;
+				fwrite(&c, 1, 1, stdout);
 			}
 			fflush(stdout);
 		}
@@ -2392,8 +2368,6 @@ term_emul(void)
 			ms_sleep(sleep_t);
 			if (sleep_t < 20)
 				sleep_t++;
-			if (sleep_t > 1)
-				char_rewrite = 0;
 		} else
 			sleep_t = 0;
 	} while (1);
@@ -2428,7 +2402,7 @@ main(int argc, char *argv[])
 	int debug = 0;
 	int c;
 
-	printf("ULX2S JTAG programmer v 1.04 2013/09/23 (zec)\n");
+	printf("ULX2S JTAG programmer v 1.06 2013/09/26 (zec)\n");
 
 #ifdef WIN32
 #define OPTS	"tsdc:j:b:"
