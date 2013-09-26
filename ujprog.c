@@ -2151,6 +2151,9 @@ term_emul(void)
 	CONSOLE_CURSOR_INFO cursor_info;
 	CONSOLE_SCREEN_BUFFER_INFO screen_info;
 	int color0, cons_color;
+	int esc_seqn = 0;
+	int esc_arg;
+	int prev_char = 0;
 #else
 	int rx_cnt, tx_cnt, sent;
 #endif
@@ -2159,9 +2162,6 @@ term_emul(void)
 	int infile = -1;
 	int sleep_t = 0;
 	char argbuf[256];
-	int prev_char = 0;
-	int esc_seqn = 0;
-	int esc_arg;
 	int i;
 	
 	printf("Entering terminal emulation mode using %d bauds\n", bauds);
@@ -2323,6 +2323,7 @@ term_emul(void)
 			}
 			for (i = 0; i < rx_cnt; i++) {
 				c = txbuf[i];
+#ifdef WIN32
 				if (c == 27) {
 					prev_char = 27;
 					continue;
@@ -2338,7 +2339,6 @@ term_emul(void)
 						    c - '0';
 						continue;
 					}
-#ifdef WIN32
 					if (c == 'J') {
 						system("cls");
 						SetConsoleMode(cons_in, 0);
@@ -2354,11 +2354,11 @@ term_emul(void)
 						SetConsoleTextAttribute(
 						    cons_out, cons_color);
 					}
-#endif
 					esc_seqn = 0;
 					continue;
 				}
 				esc_seqn = 0;
+#endif
 				fwrite(&c, 1, 1, stdout);
 			}
 			fflush(stdout);
