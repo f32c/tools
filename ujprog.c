@@ -2153,7 +2153,6 @@ term_emul(void)
 	int color0, cons_color;
 #else
 	int rx_cnt, tx_cnt, sent;
-	char esc = 27;
 #endif
 	int key_phase = 1; /* 0 .. normal; 1 .. CR; 2 .. CR + ~ */
 	int c, res;
