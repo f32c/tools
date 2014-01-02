@@ -1,9 +1,9 @@
 /*
  * FTDI232R USB JTAG programmer
  *
- * v 1.06 2013/09/26
+ * v 1.07 2014/01/02
  *
- * (c) 2010 - 2013 Marko Zec <zec@fer.hr>
+ * (c) 2010 - 2014 Marko Zec <zec@fer.hr>
  *
  * This software is NOT freely redistributable, neither in source nor in
  * binary format.  Usage in binary format permitted exclusively for
@@ -2164,7 +2164,8 @@ term_emul(void)
 	char argbuf[256];
 	int i;
 	
-	printf("Entering terminal emulation mode using %d bauds\n", bauds);
+	printf("Terminal emulation mode, using %d bauds\n", bauds);
+	printf("Press ENTER, ~, ? for help\n");
 
 	set_port_mode(PORT_MODE_UART);
 #ifdef WIN32
@@ -2203,13 +2204,29 @@ term_emul(void)
 	do {
 		tx_cnt = 0;
 		if (infile > 0) {
-			res = read(infile, txbuf, 2048);
+			i = 256;
+			if (bauds < 57600)
+				i = 16;
+			res = read(infile, txbuf, i);
 			if (res <= 0) {
 				close(infile);
 				infile = -1;
 				tx_cnt = 0;
 			} else
 				tx_cnt = res;
+#ifdef WIN32
+			if (kbhit()) {
+				c = getch();
+#else
+			if (read(0, &c, 1) > 0) {
+#endif
+				if (c == 3) {
+					close(infile);
+					infile = -1;
+					tx_cnt = 0;
+					printf("\nTransfer interrupted!\n\n");
+				}
+			}
 		} else
 #ifdef WIN32
 		while (kbhit()) {
@@ -2296,6 +2313,8 @@ term_emul(void)
 			else
 				key_phase = 0;
 			tx_cnt++;
+			if (tx_cnt >= 16)
+				break;
 		}
 		if (tx_cnt) {
 #ifdef WIN32
@@ -2314,16 +2333,19 @@ term_emul(void)
 		if (rx_cnt) {
 			FT_Read(ftHandle, txbuf, rx_cnt, &rx_cnt);
 #else
-		rx_cnt = ftdi_read_data(&fc, txbuf, 128);
+		rx_cnt = bauds / 300;
+		if (rx_cnt > BUFLEN_MAX)
+			rx_cnt = BUFLEN_MAX;
+		rx_cnt = ftdi_read_data(&fc, txbuf, rx_cnt);
 		if (rx_cnt) {
 #endif
 			if (rx_cnt < 0) {
 				res = 1;
 				goto done;
 			}
+#ifdef WIN32
 			for (i = 0; i < rx_cnt; i++) {
 				c = txbuf[i];
-#ifdef WIN32
 				if (c == 27) {
 					prev_char = 27;
 					continue;
@@ -2358,9 +2380,11 @@ term_emul(void)
 					continue;
 				}
 				esc_seqn = 0;
-#endif
 				fwrite(&c, 1, 1, stdout);
 			}
+#else
+			fwrite(txbuf, 1, rx_cnt, stdout);
+#endif
 			fflush(stdout);
 		}
 		if (tx_cnt == 0 && rx_cnt == 0) {
@@ -2401,12 +2425,12 @@ main(int argc, char *argv[])
 	int debug = 0;
 	int c;
 
-	printf("ULX2S JTAG programmer v 1.06 2013/09/26 (zec)\n");
+	printf("ULX2S JTAG programmer v 1.07 2013/01/02 (zec)\n");
 
 #ifdef WIN32
-#define OPTS	"tsdc:j:b:"
+#define OPTS	"tdsj:b:"
 #else
-#define OPTS	"tdj:b:"
+#define OPTS	"tdc:j:b:"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
