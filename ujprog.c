@@ -1,8 +1,6 @@
 /*
  * FTDI232R USB JTAG programmer
  *
- * v 1.07 2014/01/02
- *
  * (c) 2010 - 2014 Marko Zec <zec@fer.hr>
  *
  * This software is NOT freely redistributable, neither in source nor in
@@ -26,6 +24,8 @@
  *
  * - execute SVF commands provided as command line args?
  */
+
+static const char *verstr = "ULX2S JTAG programmer v 1.07 $Id $";
 
 
 #include <ctype.h>
@@ -59,7 +59,6 @@
 #define	BITMODE_SYNCBB		0x4
 #define	BITMODE_CBUS		0x20
 #endif
-
 
 /* Forward declarations */
 static int commit(int);
@@ -2042,6 +2041,8 @@ static void
 usage(void)
 {
 
+	printf("%s\n", verstr);
+
 	printf(
 #ifdef USE_PPI
 	    "Usage: ujprog [-j sram|flash] [-t] [-b bauds] [-c usb|ppi] file\n"
@@ -2425,8 +2426,6 @@ main(int argc, char *argv[])
 	int debug = 0;
 	int c;
 
-	printf("ULX2S JTAG programmer v 1.07 2013/01/02 (zec)\n");
-
 #ifdef WIN32
 #define OPTS	"tdsj:b:"
 #else
@@ -2484,8 +2483,10 @@ main(int argc, char *argv[])
 		exit (EXIT_FAILURE);
 	};
 
-	if (argc > 0) {
-	}
+	if (terminal)
+		system("cls");
+
+	printf("%s\n", verstr);
 
 	switch (cable_hw) {
 	case CABLE_HW_UNKNOWN:
