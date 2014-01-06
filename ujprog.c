@@ -25,7 +25,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 1.07 $Id $";
+static const char *verstr = "ULX2S JTAG programmer v 1.07 $Id$";
 
 
 #include <ctype.h>
