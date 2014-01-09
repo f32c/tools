@@ -2042,7 +2042,7 @@ static void
 usage(void)
 {
 
-	printf("%s\n", verstr);
+	printf("%s %s\n", verstr, idstr);
 
 	printf(
 #ifdef USE_PPI
@@ -2484,10 +2484,12 @@ main(int argc, char *argv[])
 		exit (EXIT_FAILURE);
 	};
 
+#ifdef WIN32
 	if (terminal)
 		system("cls");
+#endif
 
-	printf("%s\n", verstr);
+	printf("%s %s\n", verstr, idstr);
 
 	switch (cable_hw) {
 	case CABLE_HW_UNKNOWN:
