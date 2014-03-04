@@ -25,7 +25,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 1.07";
+static const char *verstr = "ULX2S JTAG programmer v 1.08";
 static const char *idstr = "$Id$";
 
 
@@ -260,7 +260,7 @@ set_port_mode(int mode)
 		 * buffers to drain first.
 		 */
 		if (port_mode != PORT_MODE_SYNC)
-			ms_sleep(10);
+			ms_sleep(20);
 
 		res = FT_SetBitMode(ftHandle,
 #else
@@ -276,10 +276,11 @@ set_port_mode(int mode)
 #ifdef WIN32
 		for (res = 0; res < 2; res++) {
 			do {
-				ms_sleep(1);
+				ms_sleep(10);
 			} while (FT_StopInTask(ftHandle) != FT_OK);
 			FT_Purge(ftHandle, FT_PURGE_RX);
 			do {} while (FT_RestartInTask(ftHandle) != FT_OK);
+			ms_sleep(10);
 		}
 #else
 		do {
@@ -2428,7 +2429,7 @@ main(int argc, char *argv[])
 	int c;
 
 #ifdef WIN32
-#define OPTS	"tdsj:b:"
+#define OPTS	"tdsj:b:p:"
 #else
 #define OPTS	"tdc:j:b:p:"
 #endif
