@@ -2045,12 +2045,11 @@ usage(void)
 
 	printf("%s %s\n", verstr, idstr);
 
-	printf(
+	printf("Usage: ujprog [-p port] [-j sram|flash] [-t] [-b bauds]"
 #ifdef USE_PPI
-	    "Usage: ujprog [-j sram|flash] [-t] [-b bauds] [-c usb|ppi] file\n"
-#else
-	    "Usage: ujprog [-p port] [-j sram|flash] [-t] [-b bauds] file\n"
+	    " [-c usb|ppi]"
 #endif
+	    " file\n"
 	);
 }
 
@@ -2207,8 +2206,8 @@ term_emul(void)
 	do {
 		tx_cnt = 0;
 		if (infile > 0) {
-			i = 256;
-			if (bauds < 57600)
+			i = bauds / 300;
+			if (bauds < 4800)
 				i = 16;
 			res = read(infile, txbuf, i);
 			if (res <= 0) {
