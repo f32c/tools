@@ -1,0 +1,19 @@
+
+SRCS = ujprog.c
+INCLUDES = -I/usr/include/libftdi1
+CFLAGS += -Wall -L/usr/lib ${INCLUDES}
+
+ujprog:	${SRCS}
+	${CC} ${CFLAGS} -lftdi1 ${SRCS} -o ujprog
+
+flash:	ft232r_flash.c
+	${CC} ${CFLAGS} -lftdi ft232r_flash.c -o ft232r_flash
+	
+install: ujprog
+	install -m 4755 ujprog /usr/local/bin
+
+clean:
+	rm -f ujprog ujprog.o
+
+depend:
+	mkdep ${INCLUDES} ${SRCS}

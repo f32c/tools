@@ -184,6 +184,7 @@ static int led_state;		/* CBUS LED indicator state */
 static int blinker_phase = 0;
 static int progress_perc = 0;
 static int bauds = 115200;
+static int port_index = 0;
 
 
 #ifdef WIN32
@@ -345,7 +346,7 @@ setup_usb(void)
 	char SerialNumber[16];
 	char Description[64];
 
-	res = FT_Open(0, &ftHandle);
+	res = FT_Open(port_index, &ftHandle);
 	if (res != FT_OK) {
 		fprintf(stderr, "FT_Open() failed\n");
 		return (res);
@@ -500,8 +501,8 @@ setup_usb(void)
 	}
 
 	for (hmp = cable_hw_map; hmp->cable_hw != CABLE_HW_UNKNOWN; hmp++) {
-		res = ftdi_usb_open_desc(&fc, 0x0403, 0x6001,
-		    hmp->cable_path, NULL);
+		res = ftdi_usb_open_desc_index(&fc, 0x0403, 0x6001,
+		    hmp->cable_path, NULL, port_index);
 		if (res == 0)
 			break;
 	}
@@ -2048,7 +2049,7 @@ usage(void)
 #ifdef USE_PPI
 	    "Usage: ujprog [-j sram|flash] [-t] [-b bauds] [-c usb|ppi] file\n"
 #else
-	    "Usage: ujprog [-j sram|flash] [-t] [-b bauds] file\n"
+	    "Usage: ujprog [-p port] [-j sram|flash] [-t] [-b bauds] file\n"
 #endif
 	);
 }
@@ -2430,7 +2431,7 @@ main(int argc, char *argv[])
 #ifdef WIN32
 #define OPTS	"tdsj:b:"
 #else
-#define OPTS	"tdc:j:b:"
+#define OPTS	"tdc:j:b:p:"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
@@ -2470,6 +2471,9 @@ main(int argc, char *argv[])
 			quick_mode = 0;
 			break;
 #endif
+		case 'p':
+			port_index = atoi(optarg);
+			break;
 		case '?':
 		default:
 			usage();
