@@ -37,7 +37,7 @@ static const char *idstr = "$Id$";
 #include <string.h>
 #include <unistd.h>
 
-#if !defined(__linux__) && !defined(WIN32)
+#ifdef __FreeBSD__
 #define USE_PPI
 #endif
 
