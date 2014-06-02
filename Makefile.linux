@@ -1,12 +1,13 @@
 
 SRCS = ujprog.c
-CFLAGS += -Wall -L/usr/lib/x86_64-linux-gnu/
+CFLAGS += -Wall
+FTLIB = /usr/lib/`uname -m`-linux-gnu/libftdi.a
 
 ujprog:	${SRCS}
-	${CC} ${CFLAGS} -lftdi ${SRCS} -o ujprog
+	${CC} ${CFLAGS} -lusb ${SRCS} ${FTLIB} -o ujprog
 
 flash:	ft232r_flash.c
-	${CC} ${CFLAGS} -lftdi ft232r_flash.c -o ft232r_flash
+	${CC} ${CFLAGS} -lusb ft232r_flash.c ${FTLIB} -o ft232r_flash
 	
 install: ujprog
 	install -m 4755 ujprog /usr/local/bin
