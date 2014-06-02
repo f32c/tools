@@ -25,7 +25,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 1.08";
+static const char *verstr = "ULX2S JTAG programmer v 1.09";
 static const char *idstr = "$Id$";
 
 
@@ -68,6 +68,7 @@ static int exec_svf_tokenized(int, char **);
 static int send_dr(int, char *, char *, char *);
 static int send_ir(int, char *, char *, char *);
 static int exec_svf_mem(char *, int, int);
+static int cmp_chip_ids(char *, char *);
 
 
 enum svf_cmd {
@@ -188,7 +189,7 @@ static int port_index = 0;
 
 
 #ifdef WIN32
-static FT_HANDLE ftHandle;		/* USB port handle */
+static FT_HANDLE ftHandle;	/* USB port handle */
 static int quick_mode = 1;
 #else
 static struct ftdi_context fc;	/* USB port handle */
@@ -1141,7 +1142,6 @@ set_state(int tgt_s) {
 }
 
 
-
 static int
 exec_svf_tokenized(int tokc, char *tokv[])
 {
@@ -1185,6 +1185,10 @@ exec_svf_tokenized(int tokc, char *tokv[])
 		if (res)
 			break;
 		if ((tokc == 6 || tokc == 8) && strcmp(tokv[3], tokv[5]) != 0) {
+			if (strlen(tokv[3]) == 8 && strlen(tokv[5]) == 8 &&
+			    strcmp(tokv[7], "FFFFFFFF") == 0 &&
+			    cmp_chip_ids(tokv[3], tokv[5]) == 0)
+				return (EXIT_FAILURE);
 			fprintf(stderr, "Received and expected data "
 			    "do not match!\n");
 			if (tokc == 6)
@@ -1353,6 +1357,36 @@ static struct jed_devices {
 	},
 	{NULL, 0, 0}
 };
+
+
+static int
+cmp_chip_ids(char *got, char *exp)
+{
+	int i, got_i, exp_i;
+
+	sscanf(got, "%x", &got_i);
+	sscanf(exp, "%x", &exp_i);
+
+	for (i = 0; jed_devices[i].name != NULL; i++)
+		if (jed_devices[i].id == got_i) {
+			got_i = i;
+			break;
+		}
+	if (jed_devices[i].name == NULL)
+		return (EXIT_FAILURE);
+	for (i = 0; jed_devices[i].name != NULL; i++)
+		if (jed_devices[i].id == exp_i)
+			break;
+
+	printf("Found device %s, but bitstream is for ",
+	    jed_devices[got_i].name);
+	if (jed_devices[i].name == NULL)
+		printf("unknown device (%08x).\n", exp_i);
+	else
+		printf("%s.\n", jed_devices[i].name);
+	return (0);
+}
+
 
 /*
  * Parse a JEDEC file and convert it into SVF program, stored in a
