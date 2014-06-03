@@ -1302,58 +1302,44 @@ enum jed_target {
 static struct jed_devices {
 	char	*name;
 	int	id;
-	int	pincount;
 	int	fuses;
 	int	row_width;
 	int	addr_len;
 } jed_devices[] = {
 	{
-		.name =		"LFXP2-5E-5TQFP144",
+		.name =		"LFXP2-5E",
 		.id =		0x01299043,
-		.pincount =	144,
 		.fuses =	1236476,
 		.row_width =	638,
 		.addr_len =	1938,
 	},
 	{
-		.name =		"LFXP2-5E-6TQFP144",
-		.id =		0x01299043,
-		.pincount =	144,
-		.fuses =	1236476,
-		.row_width =	638,
-		.addr_len =	1938,
-	},
-	{
-		.name =		"LFXP2-5E-7TQFP144",
-		.id =		0x01299043,
-		.pincount =	144,
-		.fuses =	1236476,
-		.row_width =	638,
-		.addr_len =	1938,
-	},
-	{
-		.name =		"LFXP2-8E-5TQFP144",
+		.name =		"LFXP2-8E",
 		.id =		0x0129A043,
-		.pincount =	144,
 		.fuses =	1954736,
 		.row_width =	772,
 		.addr_len =	2532,
 	},
 	{
-		.name =		"LFXP2-8E-6TQFP144",
-		.id =		0x0129A043,
-		.pincount =	144,
-		.fuses =	1954736,
-		.row_width =	772,
+		.name =		"LFXP2-17E",
+		.id =		0x0129B043,
+		.fuses =	3627704,
+		.row_width =	2188,
+		.addr_len =	1658,
+	},
+	{
+		.name =		"LFXP2-30E",
+		.id =		0x0129D043,
+		.fuses =	5954320,
+		.row_width =	2644,
 		.addr_len =	2532,
 	},
 	{
-		.name =		"LFXP2-8E-7TQFP144",
-		.id =		0x0129A043,
-		.pincount =	144,
-		.fuses =	1954736,
-		.row_width =	772,
-		.addr_len =	2532,
+		.name =		"LFXP2-40E",
+		.id =		0x0129E043,
+		.fuses =	8304368,
+		.row_width =	3384,
+		.addr_len =	2454,
 	},
 	{NULL, 0, 0}
 };
@@ -1378,7 +1364,7 @@ cmp_chip_ids(char *got, char *exp)
 		if (jed_devices[i].id == exp_i)
 			break;
 
-	printf("Found device %s, but bitstream is for ",
+	printf("Found %s device, but bitstream is for ",
 	    jed_devices[got_i].name);
 	if (jed_devices[i].name == NULL)
 		printf("unknown device (%08x).\n", exp_i);
@@ -1567,8 +1553,9 @@ exec_jedec_file(char *path, int target, int debug)
 				for (jed_dev = 0;
 				    jed_devices[jed_dev].name != NULL;
 				    jed_dev++) {
-					if (strcmp(jed_devices[jed_dev].name,
-					    incp) == 0)
+					if (strncmp(jed_devices[jed_dev].name,
+					    incp, strlen(
+					    jed_devices[jed_dev].name)) == 0)
 						break; 
 				}
 				if (jed_devices[jed_dev].name == NULL) {
@@ -1585,8 +1572,7 @@ exec_jedec_file(char *path, int target, int debug)
 		if (*inbuf == 'Q') {
 			i = atoi(&inbuf[2]);
 			if (inbuf[1] == 'P') {
-				if (jed_dev < 0 || jed_state != JED_INIT
-				    || jed_devices[jed_dev].pincount != i) {
+				if (jed_dev < 0 || jed_state != JED_INIT) {
 					fprintf(stderr,
 					    "Invalid bitstream file\n");
 					return (EXIT_FAILURE);
