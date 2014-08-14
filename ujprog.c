@@ -25,7 +25,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 1.09";
+static const char *verstr = "ULX2S JTAG programmer v 1.10";
 static const char *idstr = "$Id$";
 
 
@@ -2353,10 +2353,14 @@ term_emul(void)
 
 #ifdef WIN32
 		FT_GetStatus(ftHandle, &rx_cnt, &ev_stat, &ev_stat);
+		if (rx_cnt > BUFLEN_MAX)
+			rx_cnt = BUFLEN_MAX;
 		if (rx_cnt) {
 			FT_Read(ftHandle, txbuf, rx_cnt, &rx_cnt);
 #else
-		rx_cnt = bauds / 300;
+		rx_cnt = 1;
+		if (rx_cnt < fc.readbuffer_remaining)
+			rx_cnt = fc.readbuffer_remaining;
 		if (rx_cnt > BUFLEN_MAX)
 			rx_cnt = BUFLEN_MAX;
 		rx_cnt = ftdi_read_data(&fc, txbuf, rx_cnt);
