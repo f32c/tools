@@ -25,7 +25,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 1.10";
+static const char *verstr = "ULX2S JTAG programmer v 1.11";
 static const char *idstr = "$Id$";
 
 
@@ -2174,9 +2174,11 @@ term_emul(void)
 	CONSOLE_CURSOR_INFO cursor_info;
 	CONSOLE_SCREEN_BUFFER_INFO screen_info;
 	int color0, cons_color;
-	int esc_seqn = 0;
+	int rx_esc_seqn = 0;
+	int tx_esc_seqn = 0;
 	int esc_arg;
 	int prev_char = 0;
+	char *keystr;
 #else
 	int rx_cnt, tx_cnt, sent;
 #endif
@@ -2259,6 +2261,61 @@ term_emul(void)
 		while (read(0, &txbuf[tx_cnt], 1) > 0) {
 			c = txbuf[tx_cnt];
 #endif
+#ifdef WIN32
+			/*
+			 * Translate cursor / function keys to vt100 sequences.
+			 */
+			if (c == 224) {
+				tx_esc_seqn = 1; /* Cursor keys */
+				continue;
+			}
+			if (c == 0) {
+				/* Ignore FN keys for now */
+				continue;
+			}
+			if (tx_esc_seqn == 1) {
+				keystr = "";
+				switch (c) {
+				case 75:	/* cursor left */
+					keystr = "\x1b[D";
+					break;
+				case 77:	/* cursor right */
+					keystr = "\x1b[C";
+					break;
+				case 72:	/* cursor up */
+					keystr = "\x1b[A";
+					break;
+				case 80:	/* cursor down */
+					keystr = "\x1b[B";
+					break;
+				case 82:	/* INS */
+					keystr = "\x1b[2\x7e";
+					break;
+				case 83:	/* DEL */
+					keystr = "\x1b[3\x7e";
+					break;
+				case 73:	/* PgUP */
+					break;
+				case 81:	/* PgDOWN */
+					break;
+				case 71:	/* Home */
+					keystr = "\x1b[H";
+					break;
+				case 79:	/* End */
+					keystr = "\x1b[F";
+					break;
+				default:
+					break;
+				}
+				tx_cnt += sprintf(&txbuf[tx_cnt], "%s", keystr);
+				tx_esc_seqn = 0;
+				continue;
+			}
+#endif
+
+			/*
+			 * Catch and process ~ escape sequences.
+			 */
 			if (key_phase == 2) {
 				switch (c) {
 				case '?':
@@ -2378,11 +2435,11 @@ term_emul(void)
 					continue;
 				}
 				if (prev_char == 27 && c == '[') {
-					esc_seqn = 1;
+					rx_esc_seqn = 1;
 					esc_arg = 0;
 					continue;
 				}
-				if (esc_seqn) {
+				if (rx_esc_seqn) {
 					if (c >= '0' && c <= '9') {
 						esc_arg = esc_arg * 10 +
 						    c - '0';
@@ -2403,10 +2460,10 @@ term_emul(void)
 						SetConsoleTextAttribute(
 						    cons_out, cons_color);
 					}
-					esc_seqn = 0;
+					rx_esc_seqn = 0;
 					continue;
 				}
-				esc_seqn = 0;
+				rx_esc_seqn = 0;
 				fwrite(&c, 1, 1, stdout);
 			}
 #else
