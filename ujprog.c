@@ -2173,12 +2173,14 @@ term_emul(void)
 	HANDLE cons_out = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_CURSOR_INFO cursor_info;
 	CONSOLE_SCREEN_BUFFER_INFO screen_info;
+	COORD cursor_pos, saved_cursor_pos;
 	int color0, cons_color;
 	int rx_esc_seqn = 0;
 	int tx_esc_seqn = 0;
-	int esc_arg;
+	int esc_arg, esc_arg0;
 	int prev_char = 0;
 	char *keystr;
+	char vt100buf[20];
 #else
 	int rx_cnt, tx_cnt, sent;
 #endif
@@ -2206,8 +2208,8 @@ term_emul(void)
 
 	/* Disable CTRL-C, XON/XOFF etc. processing on console input. */
 	GetConsoleMode(cons_in, &saved_cons_mode);
-	SetConsoleMode(cons_in, 0);
-	GetConsoleScreenBufferInfo(cons_in, &screen_info);
+	SetConsoleMode(cons_in, 0x40); /* ENABLE_QUICK_EDIT_MODE */
+	GetConsoleScreenBufferInfo(cons_out, &screen_info);
 	color0 = screen_info.wAttributes;
 	color0 = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
 	cursor_info.bVisible = 1;
@@ -2270,7 +2272,7 @@ term_emul(void)
 				continue;
 			}
 			if (c == 0) {
-				/* Ignore FN keys for now */
+				tx_esc_seqn = 2; /* FN keys */
 				continue;
 			}
 			if (tx_esc_seqn == 1) {
@@ -2308,6 +2310,11 @@ term_emul(void)
 					break;
 				}
 				tx_cnt += sprintf(&txbuf[tx_cnt], "%s", keystr);
+				tx_esc_seqn = 0;
+				continue;
+			}
+			if (tx_esc_seqn == 2) {
+				/* Ignore FN keys for now */
 				tx_esc_seqn = 0;
 				continue;
 			}
@@ -2430,6 +2437,9 @@ term_emul(void)
 #ifdef WIN32
 			for (i = 0; i < rx_cnt; i++) {
 				c = txbuf[i];
+				/*
+				 * Interpret selected VT-100 control sequences
+				 */
 				if (c == 27) {
 					prev_char = 27;
 					continue;
@@ -2437,20 +2447,67 @@ term_emul(void)
 				if (prev_char == 27 && c == '[') {
 					rx_esc_seqn = 1;
 					esc_arg = 0;
+					esc_arg0 = 0;
 					continue;
 				}
 				if (rx_esc_seqn) {
+//printf("\n     .%c (%d)", c, c);
 					if (c >= '0' && c <= '9') {
 						esc_arg = esc_arg * 10 +
 						    c - '0';
 						continue;
 					}
-					if (c == 'J') {
-						system("cls");
-						SetConsoleMode(cons_in, 0);
-						SetConsoleTextAttribute(
-						    cons_out, cons_color);
-					} else if (c == 'm') {
+					if (c == ';') {
+						esc_arg0 = esc_arg;
+						esc_arg = 0;
+						continue;
+					}
+					switch (c) {
+					case 's': /* Save cursor position */
+						break;
+					case 'u': /* Restore cursor position */
+						break;
+					case 'n': /* Query cursor position */
+						if (esc_arg != 6)
+							break;
+						break;
+						GetConsoleScreenBufferInfo(
+						    cons_out, &screen_info);
+						c = sprintf(vt100buf,
+						    "\x1b[%d;%dR",
+						screen_info.dwCursorPosition.Y
+						- screen_info.srWindow.Top,
+						screen_info.dwCursorPosition.X
+						- screen_info.srWindow.Left);
+						FT_Write(ftHandle, vt100buf,
+						    c, &sent);
+						break;
+					case 'C': /* Set cursor hpos */
+						break;
+					case 'H': /* Cursor home */
+						break;
+					case 'A': /* Cursor up */
+						break;
+					case 'K': /* Erase to end of line */
+						break;
+					case 'J': /* Clear screen */
+						GetConsoleScreenBufferInfo(
+						    cons_out, &screen_info);
+						cursor_pos.X = 
+						    screen_info.srWindow.Left;
+						cursor_pos.Y = 
+						    screen_info.srWindow.Top;
+						FillConsoleOutputCharacter(
+						    cons_out, ' ',
+						(screen_info.srWindow.Bottom
+						- screen_info.srWindow.Top) *
+						(screen_info.srWindow.Right
+						- screen_info.srWindow.Left),
+						    cursor_pos, &sent);
+						SetConsoleCursorPosition(
+						    cons_out, cursor_pos);
+						break;
+					case 'm': /* Set char attribute */
 						cons_color = color0;
 						if (esc_arg == 1 ||
 						    esc_arg == 4) {
@@ -2459,6 +2516,9 @@ term_emul(void)
 						}
 						SetConsoleTextAttribute(
 						    cons_out, cons_color);
+						break;
+					default:
+						break;
 					}
 					rx_esc_seqn = 0;
 					continue;
