@@ -1,7 +1,9 @@
 
 #include <stdio.h>
+#include <unistd.h>
 
 #include <ftdi.h>
+#include <libusb.h>
 
 
 #define	FT232_EEPROM_SIZE	128
@@ -77,6 +79,9 @@ main(int argc, char *argv[]) {
                 fprintf(stderr, "ftdi_usb_reset() failed\n");
                 return (res);
         }
+
+	sleep(1);
+	libusb_reset_device((void *) fc.usb_dev);
 
         res = ftdi_usb_close(&fc);
 	return (res);
