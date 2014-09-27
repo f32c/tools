@@ -1,5 +1,5 @@
 /*
- * FTDI232R USB JTAG programmer
+ * FT-232R USB JTAG programmer
  *
  * (c) 2010 - 2014 Marko Zec <zec@fer.hr>
  *
@@ -25,7 +25,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 1.11";
+static const char *verstr = "ULX2S JTAG programmer v 1.12";
 static const char *idstr = "$Id$";
 
 
@@ -186,6 +186,8 @@ static int blinker_phase = 0;
 static int progress_perc = 0;
 static int bauds = 115200;
 static int port_index = 0;
+static int terminal = 0;
+static const char *txfname = NULL;
 
 
 #ifdef WIN32
@@ -2067,10 +2069,11 @@ usage(void)
 	printf("%s %s\n", verstr, idstr);
 
 	printf("Usage: ujprog [-p port] [-j sram|flash] [-t] [-b bauds]"
+	    " [-a textfile]"
 #ifdef USE_PPI
 	    " [-c usb|ppi]"
 #endif
-	    " file\n"
+	    " bitstream\n"
 	);
 }
 
@@ -2160,6 +2163,87 @@ prog(char *fname, int jed_target, int debug)
 		printf("\nFailed.\n");
 
 	return (res);
+}
+
+
+static void
+txfile(void)
+{
+	int tx_cnt, i, sent, infile, res;
+
+	infile = open(txfname,
+#ifdef WIN32
+	    O_RDONLY | O_BINARY
+#else
+	    O_RDONLY
+#endif
+	    );
+	if (infile < 0) {
+		printf("%s: cannot open\n", txfname);
+		return;
+	}
+
+	set_port_mode(PORT_MODE_UART);
+#ifdef WIN32
+	FT_SetLatencyTimer(ftHandle, 20);
+	FT_SetBaudRate(ftHandle, bauds);
+	FT_SetDataCharacteristics(ftHandle, FT_BITS_8, FT_STOP_BITS_1,
+	    FT_PARITY_NONE);
+	FT_SetFlowControl(ftHandle, FT_FLOW_NONE, 0, 0);
+	do {} while (FT_StopInTask(ftHandle) != FT_OK);
+	ms_sleep(50);
+	FT_Purge(ftHandle, FT_PURGE_RX);
+	do {} while (FT_RestartInTask(ftHandle) != FT_OK);
+#else
+	ftdi_set_latency_timer(&fc, 20);
+	ftdi_set_baudrate(&fc, bauds);
+	ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
+	ftdi_setflowctrl(&fc, SIO_DISABLE_FLOW_CTRL);
+	ftdi_usb_purge_buffers(&fc);
+#endif
+
+	/* Send a space mark to break into SIO loader prompt */
+	tx_cnt = 1;
+	txbuf[0] = ' ';
+#ifdef WIN32
+		FT_Write(ftHandle, txbuf, tx_cnt, &sent);
+#else
+		sent = ftdi_write_data(&fc, txbuf, tx_cnt);
+#endif
+	ms_sleep(300);
+
+	i = bauds / 300;
+	if (bauds < 4800)
+		i = 16;
+
+	do {
+		res = read(infile, txbuf, i);
+		if (res <= 0) {
+			infile = -1;
+			tx_cnt = 0;
+		} else
+			tx_cnt = res;
+
+		if (tx_cnt) {
+#ifdef WIN32
+			FT_Write(ftHandle, txbuf, tx_cnt, &sent);
+#else
+			sent = ftdi_write_data(&fc, txbuf, tx_cnt);
+#endif
+			if (sent != tx_cnt)
+				infile = -1;
+		}
+	} while (infile > 0);
+
+	close(infile);
+	ms_sleep(300);
+#ifdef WIN32
+	FT_SetLatencyTimer(ftHandle, 1);
+	FT_SetBaudRate(ftHandle, USB_BAUDS);
+#else
+	ftdi_set_latency_timer(&fc, 1);
+	ftdi_set_baudrate(&fc, USB_BAUDS);
+#endif
 }
 
 
@@ -2565,17 +2649,19 @@ main(int argc, char *argv[])
 {
 	int res = EXIT_FAILURE;
 	int jed_target = JED_TGT_SRAM;
-	int terminal = 0;
 	int debug = 0;
 	int c;
 
 #ifdef WIN32
-#define OPTS	"tdsj:b:p:"
+#define OPTS	"tdsj:b:p:a:"
 #else
-#define OPTS	"tdc:j:b:p:"
+#define OPTS	"tdc:j:b:p:a:"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
+		case 'a':
+			txfname = optarg;
+			break;
 		case 'd':
 			debug = 1;
 			break;
@@ -2672,6 +2758,8 @@ main(int argc, char *argv[])
 	do {
 		if (argc)
 			prog(argv[0], jed_target, debug);
+		if (txfname)
+			txfile();
 	} while (terminal && term_emul() == 0);
 
 	if (cable_hw == CABLE_HW_USB)
