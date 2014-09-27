@@ -2206,9 +2206,9 @@ txfile(void)
 	tx_cnt = 1;
 	txbuf[0] = ' ';
 #ifdef WIN32
-		FT_Write(ftHandle, txbuf, tx_cnt, &sent);
+	FT_Write(ftHandle, txbuf, tx_cnt, (DWORD *) &sent);
 #else
-		sent = ftdi_write_data(&fc, txbuf, tx_cnt);
+	sent = ftdi_write_data(&fc, txbuf, tx_cnt);
 #endif
 	ms_sleep(300);
 
@@ -2226,7 +2226,7 @@ txfile(void)
 
 		if (tx_cnt) {
 #ifdef WIN32
-			FT_Write(ftHandle, txbuf, tx_cnt, &sent);
+			FT_Write(ftHandle, txbuf, tx_cnt, (DWORD *) &sent);
 #else
 			sent = ftdi_write_data(&fc, txbuf, tx_cnt);
 #endif
