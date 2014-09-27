@@ -1,5 +1,6 @@
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include <ftdi.h>
@@ -32,7 +33,17 @@ unsigned char buf[FT232_EEPROM_SIZE] = {
 
 int
 main(int argc, char *argv[]) {
-	int res;
+	int res, c, port_index = 0;
+
+	while ((c = getopt(argc, argv, "p:")) != -1) {
+		switch (c) {
+		case 'p':
+			port_index = atoi(optarg);
+			break;
+		default:
+			exit (EXIT_FAILURE);
+                }
+	}
 
 	res = ftdi_init(&fc);
 	if (res < 0) {
@@ -40,7 +51,8 @@ main(int argc, char *argv[]) {
 		return (res);
 	}
 
-	res = ftdi_usb_open(&fc, 0x0403, 0x6001);
+	res = ftdi_usb_open_desc_index(&fc, 0x0403, 0x6001,
+	    NULL, NULL, port_index);
 	if (res < 0) {
 		fprintf(stderr, "ftdi_usb_open() failed\n");
 		return (res);
