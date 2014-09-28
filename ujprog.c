@@ -2217,6 +2217,10 @@ txfile(void)
 		i = 16;
 
 	do {
+		printf("%c ", statc[blinker_phase]);
+		fflush(stdout);
+		printf("\rSending %s: ", txfname);
+		blinker_phase = (blinker_phase + 1) & 0x3;
 		res = read(infile, txbuf, i);
 		if (res <= 0) {
 			infile = -1;
@@ -2235,8 +2239,10 @@ txfile(void)
 		}
 	} while (infile > 0);
 
+	printf("done.\n");
+	fflush(stdout);
 	close(infile);
-	ms_sleep(300);
+	ms_sleep(100);
 #ifdef WIN32
 	FT_SetLatencyTimer(ftHandle, 1);
 	FT_SetBaudRate(ftHandle, USB_BAUDS);
