@@ -187,6 +187,7 @@ static int progress_perc = 0;
 static int bauds = 115200;
 static int port_index = 0;
 static int terminal = 0;
+static int txfu_ms = 0;         /* txt file upload character delay (ms) */
 static const char *txfname = NULL;
 
 
@@ -2069,7 +2070,7 @@ usage(void)
 	printf("%s %s\n", verstr, idstr);
 
 	printf("Usage: ujprog [-p port] [-j sram|flash] [-t] [-b bauds]"
-	    " [-a textfile]"
+	    " [-a textfile] [-D textfile_char_delay_ms]"
 #ifdef USE_PPI
 	    " [-c usb|ppi]"
 #endif
@@ -2215,6 +2216,8 @@ txfile(void)
 	i = bauds / 300;
 	if (bauds < 4800)
 		i = 16;
+	if(txfu_ms)
+		i = 1;
 
 	do {
 		printf("%c ", statc[blinker_phase]);
@@ -2222,6 +2225,8 @@ txfile(void)
 		printf("\rSending %s: ", txfname);
 		blinker_phase = (blinker_phase + 1) & 0x3;
 		res = read(infile, txbuf, i);
+		if(txfu_ms)
+			ms_sleep(txfu_ms);
 		if (res <= 0) {
 			infile = -1;
 			tx_cnt = 0;
@@ -2659,9 +2664,9 @@ main(int argc, char *argv[])
 	int c;
 
 #ifdef WIN32
-#define OPTS	"tdsj:b:p:a:"
+#define OPTS	"tdsj:b:p:a:D:"
 #else
-#define OPTS	"tdc:j:b:p:a:"
+#define OPTS	"tdc:j:b:p:a:D:"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
@@ -2706,6 +2711,9 @@ main(int argc, char *argv[])
 #endif
 		case 'p':
 			port_index = atoi(optarg);
+			break;
+		case 'D':
+			txfu_ms = atoi(optarg);
 			break;
 		case '?':
 		default:
