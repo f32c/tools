@@ -25,7 +25,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 1.12";
+static const char *verstr = "ULX2S JTAG programmer v 1.13";
 static const char *idstr = "$Id$";
 
 
@@ -178,17 +178,17 @@ static char *statc = "-\\|/";
 /* Runtime globals */
 static int cur_s = UNDEFINED;
 static unsigned char txbuf[8 * BUFLEN_MAX];
-static int txpos = 0;
+static int txpos;
 static int need_led_blink;	/* Schedule CBUS led toggle */
 static int last_ledblink_ms;	/* Last time we toggled the CBUS LED */
 static int led_state;		/* CBUS LED indicator state */
-static int blinker_phase = 0;
-static int progress_perc = 0;
+static int blinker_phase;
+static int progress_perc;
 static int bauds = 115200;
-static int port_index = 0;
-static int terminal = 0;
-static int txfu_ms = 0;         /* txt file upload character delay (ms) */
-static const char *txfname = NULL;
+static int port_index;
+static int terminal;
+static int txfu_ms;		/* txt file upload character delay (ms) */
+static const char *txfname;
 
 
 #ifdef WIN32
@@ -2067,15 +2067,24 @@ static void
 usage(void)
 {
 
-	printf("%s %s\n", verstr, idstr);
+	printf("%s %s\n\n", verstr, idstr);
 
-	printf("Usage: ujprog [-p port] [-j sram|flash] [-t] [-b bauds]"
-	    " [-a textfile] [-D textfile_char_delay_ms]"
+	printf("Usage: ujprog [option(s)] [bitstream_file]\n");
+
+	printf(" Valid options:\n");
 #ifdef USE_PPI
-	    " [-c usb|ppi]"
+	printf("  -c CABLE	Select USB (default) or PPI JTAG CABLE\n");
 #endif
-	    " bitstream\n"
-	);
+	printf("  -p PORT	Select USB JTAG PORT (default is 0)\n");
+	printf("  -j TARGET	Select bitstream TARGET as SRAM (default)"
+	    " or FLASH\n");
+	printf("  -t		Enter terminal emulation mode after"
+	    " JTAG operations\n");
+	printf("  -b SPEED	Set baudrate to SPEED (300 to 3000000"
+	    " bauds)\n");
+	printf("  -a FILE	Send a text FILE\n");
+	printf("  -D DELAY	Delay transmission of each character by"
+	    " DELAY ms\n");
 }
 
 
@@ -2190,7 +2199,7 @@ txfile(void)
 	FT_SetBaudRate(ftHandle, bauds);
 	FT_SetDataCharacteristics(ftHandle, FT_BITS_8, FT_STOP_BITS_1,
 	    FT_PARITY_NONE);
-	FT_SetFlowControl(ftHandle, FT_FLOW_NONE, 0, 0);
+	FT_SetFlowControl(ftHandle, FT_FLOW_XON_XOFF, 0, 0);
 	do {} while (FT_StopInTask(ftHandle) != FT_OK);
 	ms_sleep(50);
 	FT_Purge(ftHandle, FT_PURGE_RX);
@@ -2199,7 +2208,7 @@ txfile(void)
 	ftdi_set_latency_timer(&fc, 20);
 	ftdi_set_baudrate(&fc, bauds);
 	ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
-	ftdi_setflowctrl(&fc, SIO_DISABLE_FLOW_CTRL);
+	ftdi_setflowctrl(&fc, SIO_XON_XOFF_HS);
 	ftdi_usb_purge_buffers(&fc);
 #endif
 
@@ -2684,9 +2693,11 @@ main(int argc, char *argv[])
 			break;
 #ifdef USE_PPI
 		case 'c':
-			if (strcmp(optarg, "usb") == 0)
+			if (strcmp(optarg, "usb") == 0 ||
+			    strcmp(optarg, "USB") == 0)
 				cable_hw = CABLE_HW_USB;
-			else if (strcmp(optarg, "ppi") == 0)
+			else if (strcmp(optarg, "ppi") == 0 ||
+			    strcmp(optarg, "PPI") == 0)
 				cable_hw = CABLE_HW_PPI;
 			else {
 				usage();
@@ -2695,9 +2706,11 @@ main(int argc, char *argv[])
 			break;
 #endif
 		case 'j':
-			if (strcmp(optarg, "sram") == 0)
+			if (strcmp(optarg, "sram") == 0 ||
+			    strcmp(optarg, "SRAM") == 0)
 				jed_target = JED_TGT_SRAM;
-			else if (strcmp(optarg, "flash") == 0)
+			else if (strcmp(optarg, "flash") == 0 ||
+			    strcmp(optarg, "FLASH") == 0)
 				jed_target = JED_TGT_FLASH;
 			else {
 				usage();
@@ -2724,7 +2737,7 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (argc == 0 && terminal == 0) {
+	if (argc == 0 && terminal == 0 && txfname == NULL) {
 		usage();
 		exit (EXIT_FAILURE);
 	};
