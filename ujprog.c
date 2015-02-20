@@ -187,6 +187,7 @@ static int progress_perc;
 static int bauds = 115200;
 static int port_index;
 static int terminal;
+static int reload;
 static int txfu_ms;		/* txt file upload character delay (ms) */
 static const char *txfname;
 
@@ -2078,6 +2079,8 @@ usage(void)
 	printf("  -p PORT	Select USB JTAG PORT (default is 0)\n");
 	printf("  -j TARGET	Select bitstream TARGET as SRAM (default)"
 	    " or FLASH\n");
+	printf("  -r		Reload FPGA configuration from"
+	    " internal Flash\n");
 	printf("  -t		Enter terminal emulation mode after"
 	    " JTAG operations\n");
 	printf("  -b SPEED	Set baudrate to SPEED (300 to 3000000"
@@ -2175,6 +2178,39 @@ prog(char *fname, int jed_target, int debug)
 	return (res);
 }
 
+
+static void
+reload_xp2_flash(int debug)
+{
+	char buf[128];
+	char *c;
+
+	printf("Reconfiguring FPGA...\n");
+
+	/* Move TAP into RESET state. */
+	set_port_mode(PORT_MODE_ASYNC);
+	set_state(IDLE);
+	set_state(RESET);
+	commit(1);
+
+	/* Reset sequence */
+	c = buf;
+	c += sprintf(c, "RUNTEST IDLE 3 TCK;\n");
+	*c++ = 0;
+	c += sprintf(c, "SIR 8 TDI (1E);\n");
+	*c++ = 0;
+	c += sprintf(c, "SIR 8 TDI (23);\n");
+	*c++ = 0;
+	c += sprintf(c, "!\n");
+	exec_svf_mem(buf, 4, debug);
+
+	/* Leave TAP in RESET state. */
+	set_port_mode(PORT_MODE_ASYNC);
+	set_state(IDLE);
+	set_state(RESET);
+	commit(1);
+
+}
 
 static void
 txfile(void)
@@ -2433,12 +2469,14 @@ term_emul(void)
 					printf("~?\n"
 					    " ~>	send file\n"
 					    " ~b	change baudrate\n"
-					    " ~r	reprogram the FPGA\n"
+					    " ~r	reprogram / reload "
+						"the FPGA\n"
 					    " ~.	exit from ujprog\n"
 					    " ~?	get this summary\n"
 					);
 					continue;
 				case 'r':
+					reload = 1;
 					res = 0;
 					goto done;
 				case '.':
@@ -2673,9 +2711,9 @@ main(int argc, char *argv[])
 	int c;
 
 #ifdef WIN32
-#define OPTS	"tdsj:b:p:a:D:"
+#define OPTS	"tdsj:b:p:a:D:r"
 #else
-#define OPTS	"tdc:j:b:p:a:D:"
+#define OPTS	"tdc:j:b:p:a:D:r"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
@@ -2687,6 +2725,9 @@ main(int argc, char *argv[])
 			break;
 		case 't':
 			terminal = 1;
+			break;
+		case 'r':
+			reload = 1;
 			break;
 		case 'b':
 			bauds = atoi(optarg);
@@ -2737,7 +2778,7 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (argc == 0 && terminal == 0 && txfname == NULL) {
+	if (argc == 0 && terminal == 0 && txfname == NULL && reload == 0) {
 		usage();
 		exit (EXIT_FAILURE);
 	};
@@ -2783,8 +2824,12 @@ main(int argc, char *argv[])
 #endif /* !WIN32 */
 
 	do {
+		if (reload)
+			reload_xp2_flash(debug);
+		reload = 0;
 		if (argc)
 			prog(argv[0], jed_target, debug);
+		jed_target = JED_TGT_SRAM; /* for subsequent prog() calls */
 		if (txfname)
 			txfile();
 	} while (terminal && term_emul() == 0);
