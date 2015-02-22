@@ -186,10 +186,11 @@ static int blinker_phase;
 static int progress_perc;
 static int bauds = 115200;
 static int port_index;
-static int terminal;
-static int reload;
+static int terminal;		/* terminal emulation mode */
+static int reload;		/* reload FPGA from Flash? */
 static int txfu_ms;		/* txt file upload character delay (ms) */
-static const char *txfname;
+static int tx_binary;		/* send in raw (0) or binary (1) format */
+static const char *txfname;	/* file to send */
 
 
 #ifdef WIN32
@@ -209,6 +210,21 @@ static int ppi;			/* Parallel port handle */
 #else
 #define	ms_sleep(delay_ms)	usleep((delay_ms) * 1000);
 #endif
+
+
+static void
+terminal_help(void)
+{
+
+	printf(
+	    "  ~>	send file\n"
+	    "  ~b	change baudrate\n"
+	    "  ~r	reprogram / reload "
+		"the FPGA\n"
+	    "  ~.	exit from ujprog\n"
+	    "  ~?	get this summary\n"
+	);
+}
 
 
 static long
@@ -2070,24 +2086,30 @@ usage(void)
 
 	printf("%s %s\n\n", verstr, idstr);
 
-	printf("Usage: ujprog [option(s)] [bitstream_file]\n");
+	printf("Usage: ujprog [option(s)] [bitstream_file]\n\n");
 
 	printf(" Valid options:\n");
 #ifdef USE_PPI
 	printf("  -c CABLE	Select USB (default) or PPI JTAG CABLE\n");
 #endif
-	printf("  -p PORT	Select USB JTAG PORT (default is 0)\n");
+	printf("  -p PORT	Select USB JTAG / UART PORT (default is 0)\n");
 	printf("  -j TARGET	Select bitstream TARGET as SRAM (default)"
 	    " or FLASH\n");
 	printf("  -r		Reload FPGA configuration from"
 	    " internal Flash\n");
 	printf("  -t		Enter terminal emulation mode after"
-	    " JTAG operations\n");
+	    " completing JTAG operations\n");
 	printf("  -b SPEED	Set baudrate to SPEED (300 to 3000000"
 	    " bauds)\n");
-	printf("  -a FILE	Send a text FILE\n");
-	printf("  -D DELAY	Delay transmission of each character by"
+	printf("  -e FILE	Send and execute a f32c (MIPS/RISCV) binary "
+	    "FILE\n");
+	printf("  -a FILE	Send a raw FILE\n");
+	printf("  -D DELAY	Delay transmission of each byte by"
 	    " DELAY ms\n");
+
+	printf("\n Terminal emulation mode commands:\n");
+	terminal_help();
+	printf("\n");
 }
 
 
@@ -2209,13 +2231,28 @@ reload_xp2_flash(int debug)
 	set_state(IDLE);
 	set_state(RESET);
 	commit(1);
-
 }
+
 
 static void
 txfile(void)
 {
 	int tx_cnt, i, sent, infile, res;
+	uint32_t base, len;
+	FILE *fd;
+
+	if (tx_binary) {
+		fd = fopen(txfname, "r");
+		if (fd == NULL) {
+			printf("%s: cannot open\n", txfname);
+			return;
+		}
+		fseek(fd, 0, SEEK_END);
+		len = ftell(fd);
+		fseek(fd, 0, SEEK_SET);
+		fclose(fd);
+		base = 0x80000000;
+	}
 
 	infile = open(txfname,
 #ifdef WIN32
@@ -2231,7 +2268,6 @@ txfile(void)
 
 	set_port_mode(PORT_MODE_UART);
 #ifdef WIN32
-	FT_SetLatencyTimer(ftHandle, 20);
 	FT_SetBaudRate(ftHandle, bauds);
 	FT_SetDataCharacteristics(ftHandle, FT_BITS_8, FT_STOP_BITS_1,
 	    FT_PARITY_NONE);
@@ -2241,7 +2277,6 @@ txfile(void)
 	FT_Purge(ftHandle, FT_PURGE_RX);
 	do {} while (FT_RestartInTask(ftHandle) != FT_OK);
 #else
-	ftdi_set_latency_timer(&fc, 20);
 	ftdi_set_baudrate(&fc, bauds);
 	ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
 	ftdi_setflowctrl(&fc, SIO_XON_XOFF_HS);
@@ -2256,7 +2291,39 @@ txfile(void)
 #else
 	sent = ftdi_write_data(&fc, txbuf, tx_cnt);
 #endif
-	ms_sleep(300);
+
+	/* Wait for f32c ROM BIST to complete */
+	ms_sleep(200);
+
+	if (tx_binary) {
+		txbuf[0] = 255; /* Start of binary transfer marker */
+#ifdef WIN32
+		FT_Write(ftHandle, txbuf, 1, (DWORD *) &sent);
+#else
+		sent = ftdi_write_data(&fc, txbuf, 1);
+#endif
+		ms_sleep(5);
+
+#ifdef WIN32
+		FT_SetBaudRate(ftHandle, 3000000);
+#else
+		ftdi_set_baudrate(&fc, 3000000);
+#endif
+		for (i = 0; i < 4; i++) {
+			txbuf[i] = base >> 24;
+			base <<= 8;
+		}
+		for (i = 4; i < 8; i++) {
+			txbuf[i] = len >> 24;
+			len <<= 8;
+		}
+#ifdef WIN32
+		FT_Write(ftHandle, txbuf, 8, (DWORD *) &sent);
+#else
+		sent = ftdi_write_data(&fc, txbuf, 8);
+#endif
+
+	}
 
 	i = bauds / 300;
 	if (bauds < 4800)
@@ -2292,12 +2359,11 @@ txfile(void)
 	printf("done.\n");
 	fflush(stdout);
 	close(infile);
-	ms_sleep(100);
+	ms_sleep(5);
+
 #ifdef WIN32
-	FT_SetLatencyTimer(ftHandle, 1);
 	FT_SetBaudRate(ftHandle, USB_BAUDS);
 #else
-	ftdi_set_latency_timer(&fc, 1);
 	ftdi_set_baudrate(&fc, USB_BAUDS);
 #endif
 }
@@ -2466,14 +2532,8 @@ term_emul(void)
 			if (key_phase == 2) {
 				switch (c) {
 				case '?':
-					printf("~?\n"
-					    " ~>	send file\n"
-					    " ~b	change baudrate\n"
-					    " ~r	reprogram / reload "
-						"the FPGA\n"
-					    " ~.	exit from ujprog\n"
-					    " ~?	get this summary\n"
-					);
+					printf("~?\n");
+					terminal_help();
 					continue;
 				case 'r':
 					reload = 1;
@@ -2593,7 +2653,6 @@ term_emul(void)
 					continue;
 				}
 				if (rx_esc_seqn) {
-//printf("\n     .%c (%d)", c, c);
 					if (c >= '0' && c <= '9') {
 						esc_arg = esc_arg * 10 +
 						    c - '0';
@@ -2711,14 +2770,20 @@ main(int argc, char *argv[])
 	int c;
 
 #ifdef WIN32
-#define OPTS	"tdsj:b:p:a:D:r"
+#define OPTS	"tdsj:b:p:a:e:D:r"
 #else
-#define OPTS	"tdc:j:b:p:a:D:r"
+#define OPTS	"tdc:j:b:p:a:e:D:r"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
 		case 'a':
 			txfname = optarg;
+			tx_binary = 0;
+			break;
+		case 'e':
+			txfname = optarg;
+			tx_binary = 1;
+			reload = 1;
 			break;
 		case 'd':
 			debug = 1;
