@@ -2328,8 +2328,10 @@ txfile(void)
 	i = bauds / 300;
 	if (bauds < 4800)
 		i = 16;
-	if(txfu_ms)
+	if (txfu_ms)
 		i = 1;
+	if (tx_binary)
+		i = 2048;
 
 	do {
 		printf("%c ", statc[blinker_phase]);
@@ -2337,7 +2339,7 @@ txfile(void)
 		printf("\rSending %s: ", txfname);
 		blinker_phase = (blinker_phase + 1) & 0x3;
 		res = read(infile, txbuf, i);
-		if(txfu_ms)
+		if (!tx_binary && txfu_ms)
 			ms_sleep(txfu_ms);
 		if (res <= 0) {
 			infile = -1;
@@ -2360,7 +2362,9 @@ txfile(void)
 	fflush(stdout);
 	close(infile);
 
-	if (!tx_binary)
+	if (tx_binary)
+		ms_sleep(2)
+	else
 		ms_sleep(20);
 
 #ifdef WIN32
@@ -2399,9 +2403,6 @@ term_emul(void)
 	char argbuf[256];
 	int i;
 	
-	printf("Terminal emulation mode, using %d bauds\n", bauds);
-	printf("Press ENTER, ~, ? for help\n");
-
 	set_port_mode(PORT_MODE_UART);
 #ifdef WIN32
 	FT_SetLatencyTimer(ftHandle, 20);
@@ -2435,6 +2436,9 @@ term_emul(void)
 	fcntl(0, F_SETFL, O_NONBLOCK);
 	system("stty -echo -isig -icanon -iexten -ixon -ixoff -icrnl");
 #endif
+
+	printf("Terminal emulation mode, using %d bauds\n", bauds);
+	printf("Press ENTER, ~, ? for help\n");
 
 	do {
 		tx_cnt = 0;
