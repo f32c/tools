@@ -2359,7 +2359,9 @@ txfile(void)
 	printf("done.\n");
 	fflush(stdout);
 	close(infile);
-	ms_sleep(5);
+
+	if (!tx_binary)
+		ms_sleep(20);
 
 #ifdef WIN32
 	FT_SetBaudRate(ftHandle, USB_BAUDS);
