@@ -212,21 +212,6 @@ static int ppi;			/* Parallel port handle */
 #endif
 
 
-static void
-terminal_help(void)
-{
-
-	printf(
-	    "  ~>	send file\n"
-	    "  ~b	change baudrate\n"
-	    "  ~r	reprogram / reload "
-		"the FPGA\n"
-	    "  ~.	exit from ujprog\n"
-	    "  ~?	get this summary\n"
-	);
-}
-
-
 static long
 ms_uptime(void)
 {
@@ -2081,6 +2066,21 @@ exec_svf_mem(char *fbuf, int lines_tot, int debug)
 
 
 static void
+terminal_help(void)
+{
+
+	printf(
+	    "  ~>	send file\n"
+	    "  ~b	change baudrate\n"
+	    "  ~r	reprogram / reload "
+		"the FPGA\n"
+	    "  ~.	exit from ujprog\n"
+	    "  ~?	get this summary\n"
+	);
+}
+
+
+static void
 usage(void)
 {
 
@@ -2109,7 +2109,9 @@ usage(void)
 
 	printf("\n Terminal emulation mode commands:\n");
 	terminal_help();
+#ifndef WIN32
 	printf("\n");
+#endif
 }
 
 
