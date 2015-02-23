@@ -2210,6 +2210,8 @@ reload_xp2_flash(int debug)
 	char *c;
 
 	printf("Reconfiguring FPGA...\n");
+	last_ledblink_ms = ms_uptime();
+	need_led_blink = 0;
 
 	/* Move TAP into RESET state. */
 	set_port_mode(PORT_MODE_ASYNC);
