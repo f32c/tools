@@ -2859,6 +2859,12 @@ main(int argc, char *argv[])
 		exit (EXIT_FAILURE);
 	};
 
+#ifdef __APPLE__
+    setuid(0);
+    system("/sbin/kextunload -bundle-id com.FTDI.driver.FTDIUSBSerialDriver");
+    system("/sbin/kextunload -bundle-id com.apple.driver.AppleUSBFTDI");
+#endif
+
 #ifdef WIN32
 	if (terminal)
 		system("cls");
@@ -2915,6 +2921,12 @@ main(int argc, char *argv[])
 #ifdef USE_PPI
 	else
 		shutdown_ppi();
+#endif
+
+#ifdef __APPLE__
+    setuid(0);
+    system("/sbin/kextload -bundle-id com.FTDI.driver.FTDIUSBSerialDriver");
+    system("/sbin/kextload -bundle-id com.apple.driver.AppleUSBFTDI");
 #endif
 
 	return (res);
