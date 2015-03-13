@@ -572,12 +572,17 @@ shutdown_usb(void)
 		return (res);
 	}
 
+#ifdef __linux__
+	usb_reset((void *) fc.usb_dev);
+#else
 	res = ftdi_usb_close(&fc);
 	if (res < 0) {
 		fprintf(stderr, "unable to close ftdi device: %d (%s)\n",
 		    res, ftdi_get_error_string(&fc));
 		return (res);
 	}
+#endif
+
 	ftdi_deinit(&fc);
 
 	return (0);
