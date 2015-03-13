@@ -145,6 +145,7 @@ static struct cable_hw_map {
 } cable_hw_map[] = {
 	{CABLE_HW_USB,		"FER ULXP2 board JTAG / UART"},
 	{CABLE_HW_USB,		"FER ULX2S board JTAG / UART"},
+	// {CABLE_HW_USB,		"FT232R USB UART"},
 	{CABLE_HW_UNKNOWN,	NULL},
 };
 
