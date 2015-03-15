@@ -1,7 +1,7 @@
 /*
  * FT-232R USB JTAG programmer
  *
- * (c) 2010 - 2014 Marko Zec <zec@fer.hr>
+ * (c) 2010 - 2015 Marko Zec <zec@fer.hr>
  *
  * This software is NOT freely redistributable, neither in source nor in
  * binary format.  Usage in binary format permitted exclusively for
@@ -25,7 +25,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 1.13";
+static const char *verstr = "ULX2S JTAG programmer v 2.alpha";
 static const char *idstr = "$Id$";
 
 
@@ -36,6 +36,7 @@ static const char *idstr = "$Id$";
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <termios.h>
 
 #ifdef __FreeBSD__
 #define USE_PPI
@@ -135,7 +136,7 @@ static enum port_mode {
 
 
 static enum cable_hw {
-	CABLE_HW_USB, CABLE_HW_PPI, CABLE_HW_UNKNOWN
+	CABLE_HW_USB, CABLE_HW_PPI, CABLE_HW_COM, CABLE_HW_UNKNOWN
 } cable_hw = CABLE_HW_UNKNOWN;
 
 
@@ -189,9 +190,13 @@ static int bauds = 115200;
 static int port_index;
 static int terminal;		/* terminal emulation mode */
 static int reload;		/* reload FPGA from Flash? */
+static int quiet;		/* suppress standard messages */
 static int txfu_ms;		/* txt file upload character delay (ms) */
 static int tx_binary;		/* send in raw (0) or binary (1) format */
 static const char *txfname;	/* file to send */
+static const char *com_name;	/* COM / TTY port name for -a or -t */
+static int com_port;		/* COM port file */
+static struct termios tty;	/* COM port TTY handle */
 
 
 #ifdef WIN32
@@ -248,9 +253,11 @@ set_port_mode(int mode)
 	if (need_led_blink) {
 		need_led_blink = 0;
 		led_state ^= USB_CBUS_LED;
-		printf("\rProgramming: %d%% %c ",
-		    progress_perc, statc[blinker_phase]);
-		fflush(stdout);
+		if (!quiet) {
+			printf("\rProgramming: %d%% %c ",
+			    progress_perc, statc[blinker_phase]);
+			fflush(stdout);
+		}
 		blinker_phase = (blinker_phase + 1) & 0x3;
 	}
 
@@ -371,7 +378,8 @@ setup_usb(void)
 		    "FT_GetDeviceInfo() found incompatible device\n");
 		return (-1);
 	}
-	printf("Using USB cable: %s\n", Description);
+	if (!quiet)
+		printf("Using USB cable: %s\n", Description);
     
 	res = FT_SetBaudRate(ftHandle, USB_BAUDS);
 	if (res != FT_OK) {
@@ -502,6 +510,14 @@ setup_usb(void)
 	int res;
 	struct cable_hw_map *hmp;
 
+#ifdef __APPLE__
+	setuid(0);
+	system("/sbin/kextunload"
+	    " -bundle-id com.FTDI.driver.FTDIUSBSerialDriver");
+	system("/sbin/kextunload"
+	    " -bundle-id com.apple.driver.AppleUSBFTDI");
+#endif
+
 	res = ftdi_init(&fc);
 	if (res < 0) {
 		fprintf(stderr, "ftdi_init() failed\n");
@@ -586,6 +602,13 @@ shutdown_usb(void)
 
 	ftdi_deinit(&fc);
 
+#ifdef __APPLE__
+	system("/sbin/kextload"
+	    " -bundle-id com.FTDI.driver.FTDIUSBSerialDriver");
+	system("/sbin/kextload"
+	    "  -bundle-id com.apple.driver.AppleUSBFTDI");
+#endif
+
 	return (0);
 }
 #endif /* !WIN32 */
@@ -616,7 +639,7 @@ set_tms_tdi(int tms, int tdi)
 		fprintf(stderr, "txbuf overflow\n");
 		if (cable_hw == CABLE_HW_USB)
 			shutdown_usb();
-		exit (EXIT_FAILURE);
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -1146,7 +1169,7 @@ set_state(int tgt_s) {
 		    STATE2STR(cur_s), STATE2STR(tgt_s));
 		if (cable_hw == CABLE_HW_USB)
 			shutdown_usb();
-		exit (1);
+		exit(EXIT_FAILURE);
 	}
 
 	cur_s = tgt_s;
@@ -1375,12 +1398,13 @@ cmp_chip_ids(char *got, char *exp)
 		if (jed_devices[i].id == exp_i)
 			break;
 
-	printf("Found %s device, but bitstream is for ",
+	fprintf(stderr, "Found %s device, but bitstream is for ",
 	    jed_devices[got_i].name);
 	if (jed_devices[i].name == NULL)
-		printf("unknown device (%08x).\n", exp_i);
+		fprintf(stderr, "unknown device (%08x).\n", exp_i);
 	else
-		printf("%s.\n", jed_devices[i].name);
+		if (!quiet)
+			printf("%s.\n", jed_devices[i].name);
 	return (0);
 }
 
@@ -2090,8 +2114,6 @@ static void
 usage(void)
 {
 
-	printf("%s %s\n\n", verstr, idstr);
-
 	printf("Usage: ujprog [option(s)] [bitstream_file]\n\n");
 
 	printf(" Valid options:\n");
@@ -2099,6 +2121,11 @@ usage(void)
 	printf("  -c CABLE	Select USB (default) or PPI JTAG CABLE\n");
 #endif
 	printf("  -p PORT	Select USB JTAG / UART PORT (default is 0)\n");
+#ifdef WIN32
+	printf("  -P COM	Select COM port (valid only with -t or -a)\n");
+#else
+	printf("  -P TTY	Select TTY port (valid only with -t or -a)\n");
+#endif
 	printf("  -j TARGET	Select bitstream TARGET as SRAM (default)"
 	    " or FLASH\n");
 	printf("  -r		Reload FPGA configuration from"
@@ -2112,6 +2139,7 @@ usage(void)
 	printf("  -a FILE	Send a raw FILE\n");
 	printf("  -D DELAY	Delay transmission of each byte by"
 	    " DELAY ms\n");
+	printf("  -q 		Suppress messages\n");
 
 	printf("\n Terminal emulation mode commands:\n");
 	terminal_help();
@@ -2184,7 +2212,7 @@ prog(char *fname, int jed_target, int debug)
 	c = strlen(fname) - 4;
 	if (c < 0) {
 		usage();
-		exit (EXIT_FAILURE);
+		exit(EXIT_FAILURE);
 	}
 	if (strcasecmp(&fname[c], ".jed") == 0)
 		res = exec_jedec_file(fname, jed_target, debug);
@@ -2199,11 +2227,13 @@ prog(char *fname, int jed_target, int debug)
 
 	tend = ms_uptime();
 	if (res == 0) {
-		printf("\rProgramming: 100%%  ");
-		printf("\nCompleted in %.2f seconds.\n",
-		    (tend - tstart) / 1000.0);
+		if (!quiet) {
+			printf("\rProgramming: 100%%  ");
+			printf("\nCompleted in %.2f seconds.\n",
+			    (tend - tstart) / 1000.0);
+		}
 	} else
-		printf("\nFailed.\n");
+		fprintf(stderr, "\nFailed.\n");
 
 	return (res);
 }
@@ -2215,7 +2245,8 @@ reload_xp2_flash(int debug)
 	char buf[128];
 	char *c;
 
-	printf("Reconfiguring FPGA...\n");
+	if (!quiet)
+		printf("Reconfiguring FPGA...\n");
 	last_ledblink_ms = ms_uptime();
 	need_led_blink = 0;
 
@@ -2254,7 +2285,7 @@ txfile(void)
 	if (tx_binary) {
 		fd = fopen(txfname, "r");
 		if (fd == NULL) {
-			printf("%s: cannot open\n", txfname);
+			fprintf(stderr, "%s: cannot open\n", txfname);
 			return;
 		}
 		fseek(fd, 0, SEEK_END);
@@ -2272,39 +2303,43 @@ txfile(void)
 #endif
 	    );
 	if (infile < 0) {
-		printf("%s: cannot open\n", txfname);
+		fprintf(stderr, "%s: cannot open\n", txfname);
 		return;
 	}
 
-	set_port_mode(PORT_MODE_UART);
+	if (cable_hw == CABLE_HW_USB) {
+		set_port_mode(PORT_MODE_UART);
 #ifdef WIN32
-	FT_SetBaudRate(ftHandle, bauds);
-	FT_SetDataCharacteristics(ftHandle, FT_BITS_8, FT_STOP_BITS_1,
-	    FT_PARITY_NONE);
-	FT_SetFlowControl(ftHandle, FT_FLOW_XON_XOFF, 0, 0);
-	do {} while (FT_StopInTask(ftHandle) != FT_OK);
-	ms_sleep(50);
-	FT_Purge(ftHandle, FT_PURGE_RX);
-	do {} while (FT_RestartInTask(ftHandle) != FT_OK);
+		FT_SetBaudRate(ftHandle, bauds);
+		FT_SetDataCharacteristics(ftHandle, FT_BITS_8, FT_STOP_BITS_1,
+		    FT_PARITY_NONE);
+		FT_SetFlowControl(ftHandle, FT_FLOW_XON_XOFF, 0, 0);
+		do {} while (FT_StopInTask(ftHandle) != FT_OK);
+		ms_sleep(50);
+		FT_Purge(ftHandle, FT_PURGE_RX);
+		do {} while (FT_RestartInTask(ftHandle) != FT_OK);
 #else
-	ftdi_set_baudrate(&fc, bauds);
-	ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
-	ftdi_setflowctrl(&fc, SIO_XON_XOFF_HS);
-	ftdi_usb_purge_buffers(&fc);
-	ms_sleep(50); /* XXX: OS-X needs this */
+		ftdi_set_baudrate(&fc, bauds);
+		ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
+		ftdi_setflowctrl(&fc, SIO_XON_XOFF_HS);
+		ftdi_usb_purge_buffers(&fc);
+		ms_sleep(50); /* XXX: OS-X needs this */
 #endif
+	}
 
 	/* Send a space mark to break into SIO loader prompt */
 	tx_cnt = 1;
 	txbuf[0] = ' ';
+	
+	if (cable_hw == CABLE_HW_USB) {
 #ifdef WIN32
-	FT_Write(ftHandle, txbuf, tx_cnt, (DWORD *) &sent);
+		FT_Write(ftHandle, txbuf, tx_cnt, (DWORD *) &sent);
 #else
-	sent = ftdi_write_data(&fc, txbuf, tx_cnt);
+		sent = ftdi_write_data(&fc, txbuf, tx_cnt);
 #endif
-
-	/* Wait for f32c ROM BIST to complete */
-	ms_sleep(200);
+		/* Wait for f32c ROM BIST to complete */
+		ms_sleep(200);
+	}
 
 	if (tx_binary) {
 		txbuf[0] = 255; /* Start of binary transfer marker */
@@ -2333,7 +2368,6 @@ txfile(void)
 #else
 		sent = ftdi_write_data(&fc, txbuf, 8);
 #endif
-
 	}
 
 	i = bauds / 300;
@@ -2345,10 +2379,12 @@ txfile(void)
 		i = 2048;
 
 	do {
-		printf("%c ", statc[blinker_phase]);
-		fflush(stdout);
-		printf("\rSending %s: ", txfname);
-		blinker_phase = (blinker_phase + 1) & 0x3;
+		if (!quiet) {
+			printf("%c ", statc[blinker_phase]);
+			fflush(stdout);
+			printf("\rSending %s: ", txfname);
+			blinker_phase = (blinker_phase + 1) & 0x3;
+		}
 		res = read(infile, txbuf, i);
 		if (!tx_binary && txfu_ms)
 			ms_sleep(txfu_ms);
@@ -2359,17 +2395,23 @@ txfile(void)
 			tx_cnt = res;
 
 		if (tx_cnt) {
+			if (cable_hw == CABLE_HW_USB) {
 #ifdef WIN32
-			FT_Write(ftHandle, txbuf, tx_cnt, (DWORD *) &sent);
+				FT_Write(ftHandle, txbuf, tx_cnt,
+				    (DWORD *) &sent);
 #else
-			sent = ftdi_write_data(&fc, txbuf, tx_cnt);
+				sent = ftdi_write_data(&fc, txbuf, tx_cnt);
 #endif
+			} else {/* cable_hw == CABLE_HW_COM */
+				sent = write(com_port, txbuf, tx_cnt);
+			}
 			if (sent != tx_cnt)
 				infile = -1;
 		}
 	} while (infile > 0);
 
-	printf("done.\n");
+	if (!quiet)
+		printf("done.\n");
 	fflush(stdout);
 	close(infile);
 
@@ -2378,11 +2420,13 @@ txfile(void)
 	else
 		ms_sleep(20);
 
+	if (cable_hw == CABLE_HW_USB) {
 #ifdef WIN32
-	FT_SetBaudRate(ftHandle, USB_BAUDS);
+		FT_SetBaudRate(ftHandle, USB_BAUDS);
 #else
-	ftdi_set_baudrate(&fc, USB_BAUDS);
+		ftdi_set_baudrate(&fc, USB_BAUDS);
 #endif
+	}
 }
 
 
@@ -2416,15 +2460,17 @@ term_emul(void)
 	
 	set_port_mode(PORT_MODE_UART);
 #ifdef WIN32
-	FT_SetLatencyTimer(ftHandle, 20);
-	FT_SetBaudRate(ftHandle, bauds);
-	FT_SetDataCharacteristics(ftHandle, FT_BITS_8, FT_STOP_BITS_1,
-	    FT_PARITY_NONE);
-	FT_SetFlowControl(ftHandle, FT_FLOW_NONE, 0, 0);
-	do {} while (FT_StopInTask(ftHandle) != FT_OK);
-	ms_sleep(50);
-	FT_Purge(ftHandle, FT_PURGE_RX);
-	do {} while (FT_RestartInTask(ftHandle) != FT_OK);
+	if (cable_hw == CABLE_HW_USB) {
+		FT_SetLatencyTimer(ftHandle, 20);
+		FT_SetBaudRate(ftHandle, bauds);
+		FT_SetDataCharacteristics(ftHandle, FT_BITS_8, FT_STOP_BITS_1,
+		    FT_PARITY_NONE);
+		FT_SetFlowControl(ftHandle, FT_FLOW_NONE, 0, 0);
+		do {} while (FT_StopInTask(ftHandle) != FT_OK);
+		ms_sleep(50);
+		FT_Purge(ftHandle, FT_PURGE_RX);
+		do {} while (FT_RestartInTask(ftHandle) != FT_OK);
+	}
 
 	/* Disable CTRL-C, XON/XOFF etc. processing on console input. */
 	GetConsoleMode(cons_in, &saved_cons_mode);
@@ -2437,11 +2483,13 @@ term_emul(void)
 	SetConsoleCursorInfo(cons_out, &cursor_info);
 	SetConsoleTextAttribute(cons_out, color0);
 #else
-	ftdi_set_latency_timer(&fc, 20);
-	ftdi_set_baudrate(&fc, bauds);
-	ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
-	ftdi_setflowctrl(&fc, SIO_DISABLE_FLOW_CTRL);
-	ftdi_usb_purge_buffers(&fc);
+	if (cable_hw == CABLE_HW_USB) {
+		ftdi_set_latency_timer(&fc, 20);
+		ftdi_set_baudrate(&fc, bauds);
+		ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
+		ftdi_setflowctrl(&fc, SIO_DISABLE_FLOW_CTRL);
+		ftdi_usb_purge_buffers(&fc);
+	}
 
 	/* Disable CTRL-C, XON/XOFF etc. processing on console input. */
 	fcntl(0, F_SETFL, O_NONBLOCK);
@@ -2564,7 +2612,8 @@ term_emul(void)
 					fflush(stdout);
 					gets1(argbuf, sizeof(argbuf));
 					c = atoi(argbuf);
-					if (c > 0) {
+					if (c > 0 &&
+					    cable_hw == CABLE_HW_USB) {
 #ifdef WIN32
 						res = FT_SetBaudRate(ftHandle,
 						    c);
@@ -2623,11 +2672,15 @@ term_emul(void)
 				break;
 		}
 		if (tx_cnt) {
+			if (cable_hw == CABLE_HW_USB) {
 #ifdef WIN32
-			FT_Write(ftHandle, txbuf, tx_cnt, &sent);
+				FT_Write(ftHandle, txbuf, tx_cnt, &sent);
 #else
-			sent = ftdi_write_data(&fc, txbuf, tx_cnt);
+				sent = ftdi_write_data(&fc, txbuf, tx_cnt);
 #endif
+			} else {/* cable_hw == CABLE_HW_COM */
+				sent = write(com_port, txbuf, tx_cnt);
+			}
 			if (sent != tx_cnt) {
 				res = 1;
 				goto done;
@@ -2646,7 +2699,13 @@ term_emul(void)
 			rx_cnt = fc.readbuffer_remaining;
 		if (rx_cnt > BUFLEN_MAX)
 			rx_cnt = BUFLEN_MAX;
-		rx_cnt = ftdi_read_data(&fc, txbuf, rx_cnt);
+		if (cable_hw == CABLE_HW_USB)
+			rx_cnt = ftdi_read_data(&fc, txbuf, rx_cnt);
+		else {
+			rx_cnt = read(com_port, txbuf, rx_cnt);
+			if (rx_cnt == -1)
+				rx_cnt = 0;
+		}
 		if (rx_cnt) {
 #endif
 			if (rx_cnt < 0) {
@@ -2787,29 +2846,15 @@ main(int argc, char *argv[])
 	int c;
 
 #ifdef WIN32
-#define OPTS	"tdsj:b:p:a:e:D:r"
+#define OPTS	"qtdj:b:p:P:a:e:D:rs"
 #else
-#define OPTS	"tdc:j:b:p:a:e:D:r"
+#define OPTS	"qtdj:b:p:P:a:e:D:rc:"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
 		case 'a':
 			txfname = optarg;
 			tx_binary = 0;
-			break;
-		case 'e':
-			txfname = optarg;
-			tx_binary = 1;
-			reload = 1;
-			break;
-		case 'd':
-			debug = 1;
-			break;
-		case 't':
-			terminal = 1;
-			break;
-		case 'r':
-			reload = 1;
 			break;
 		case 'b':
 			bauds = atoi(optarg);
@@ -2824,10 +2869,21 @@ main(int argc, char *argv[])
 				cable_hw = CABLE_HW_PPI;
 			else {
 				usage();
-				exit (EXIT_FAILURE);
+				exit(EXIT_FAILURE);
 			}
 			break;
 #endif
+		case 'd':
+			debug = 1;
+			break;
+		case 'D':
+			txfu_ms = atoi(optarg);
+			break;
+		case 'e':
+			txfname = optarg;
+			tx_binary = 1;
+			reload = 1;
+			break;
 		case 'j':
 			if (strcmp(optarg, "sram") == 0 ||
 			    strcmp(optarg, "SRAM") == 0)
@@ -2837,46 +2893,69 @@ main(int argc, char *argv[])
 				jed_target = JED_TGT_FLASH;
 			else {
 				usage();
-				exit (EXIT_FAILURE);
+				exit(EXIT_FAILURE);
 			}
+			break;
+		case 'p':
+			port_index = atoi(optarg);
+			break;
+		case 'P':
+			com_name = optarg;
+			cable_hw = CABLE_HW_COM;
+			break;
+		case 'q':
+			quiet = 1;
+			break;
+		case 'r':
+			reload = 1;
 			break;
 #ifdef WIN32
 		case 's':
 			quick_mode = 0;
 			break;
 #endif
-		case 'p':
-			port_index = atoi(optarg);
-			break;
-		case 'D':
-			txfu_ms = atoi(optarg);
+		case 't':
+			terminal = 1;
 			break;
 		case '?':
 		default:
 			usage();
-			exit (EXIT_FAILURE);
+			exit(EXIT_FAILURE);
 		}
 	}
 	argc -= optind;
 	argv += optind;
 
+	if (!quiet)
+		printf("%s %s\n", verstr, idstr);
+
 	if (argc == 0 && terminal == 0 && txfname == NULL && reload == 0) {
 		usage();
-		exit (EXIT_FAILURE);
+		exit(EXIT_FAILURE);
 	};
 
-#ifdef __APPLE__
-    setuid(0);
-    system("/sbin/kextunload -bundle-id com.FTDI.driver.FTDIUSBSerialDriver");
-    system("/sbin/kextunload -bundle-id com.apple.driver.AppleUSBFTDI");
-#endif
+	if (com_name && terminal == 0 && txfname == NULL) {
+		fprintf(stderr, "error: "
+		    "option -P must be used with -t or -a\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (com_name && tx_binary) {
+		fprintf(stderr, "error: "
+		    "options -P and -e are mutualy exclusive\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (com_name && cable_hw != CABLE_HW_COM) {
+		fprintf(stderr, "error: "
+		    "options -P and -c are mutualy exclusive\n");
+		exit(EXIT_FAILURE);
+	}
 
 #ifdef WIN32
 	if (terminal)
 		system("cls");
 #endif
-
-	printf("%s %s\n", verstr, idstr);
 
 	switch (cable_hw) {
 	case CABLE_HW_UNKNOWN:
@@ -2890,6 +2969,28 @@ main(int argc, char *argv[])
 	case CABLE_HW_PPI:
 		res = setup_ppi();
 #endif
+	case CABLE_HW_COM:
+		com_port = open(com_name, O_RDWR);
+		if (com_port < 0 || tcgetattr(com_port, &tty)) {
+			fprintf(stderr, "Can't open %s\n", com_name);
+			exit(EXIT_FAILURE);
+		}
+		cfsetspeed(&tty, bauds);
+		tty.c_cflag &= ~(CSIZE|PARENB);
+		tty.c_cflag |= CS8;
+		tty.c_cflag |= CLOCAL;
+		tty.c_cflag &= ~CRTSCTS;
+		tty.c_iflag &= ~(ISTRIP|ICRNL);
+		tty.c_oflag &= ~OPOST;
+		tty.c_lflag &= ~(ICANON|ISIG|IEXTEN|ECHO);
+		tty.c_cc[VMIN] = 1;
+		tty.c_cc[VTIME] = 0;
+		res = tcsetattr(com_port, TCSAFLUSH, &tty);
+		if (res) {
+			fprintf(stderr, "Can't set baudrate to %d\n", bauds);
+			exit(EXIT_FAILURE);
+		}
+		res = fcntl(com_port, F_SETFL, O_NONBLOCK);
 	default:
 		/* can't happen, shut up gcc warnings */
 		break;
@@ -2897,19 +2998,21 @@ main(int argc, char *argv[])
 
 	if (res) {
 		fprintf(stderr, "Cannot find JTAG cable.\n");
-		exit (EXIT_FAILURE);
+		exit(EXIT_FAILURE);
 	}
 
+	if (!quiet && cable_hw != CABLE_HW_COM) {
 #ifndef WIN32
-	if (cable_hw == CABLE_HW_USB)
-		printf("Using USB JTAG cable.\n");
-	else
+		if (cable_hw == CABLE_HW_USB)
+			printf("Using USB JTAG cable.\n");
+		else
 #ifdef USE_PPI
-		printf("Using parallel port JTAG cable.\n");
+			printf("Using parallel port JTAG cable.\n");
 #else
-		printf("Parallel port JTAG cable not supported!\n");
+			printf("Parallel port JTAG cable not supported!\n");
 #endif
 #endif /* !WIN32 */
+	}
 
 	do {
 		if (reload)
@@ -2927,12 +3030,6 @@ main(int argc, char *argv[])
 #ifdef USE_PPI
 	else
 		shutdown_ppi();
-#endif
-
-#ifdef __APPLE__
-    setuid(0);
-    system("/sbin/kextload -bundle-id com.FTDI.driver.FTDIUSBSerialDriver");
-    system("/sbin/kextload -bundle-id com.apple.driver.AppleUSBFTDI");
 #endif
 
 	return (res);
