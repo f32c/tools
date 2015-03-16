@@ -36,7 +36,6 @@ static const char *idstr = "$Id$";
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <termios.h>
 
 #ifdef __FreeBSD__
 #define USE_PPI
@@ -47,6 +46,7 @@ static const char *idstr = "$Id$";
 #include <ftd2xx.h>
 #else
 #include <sys/time.h>
+#include <termios.h>
 #ifdef USE_PPI
 #include <dev/ppbus/ppi.h>
 #include <dev/ppbus/ppbconf.h>
@@ -196,13 +196,13 @@ static int tx_binary;		/* send in raw (0) or binary (1) format */
 static const char *txfname;	/* file to send */
 static const char *com_name;	/* COM / TTY port name for -a or -t */
 static int com_port;		/* COM port file */
-static struct termios tty;	/* COM port TTY handle */
 
 
 #ifdef WIN32
 static FT_HANDLE ftHandle;	/* USB port handle */
 static int quick_mode = 1;
 #else
+static struct termios tty;	/* COM port TTY handle */
 static struct ftdi_context fc;	/* USB port handle */
 #ifdef USE_PPI
 static int ppi;			/* Parallel port handle */
@@ -2971,6 +2971,7 @@ main(int argc, char *argv[])
 #endif
 	case CABLE_HW_COM:
 		com_port = open(com_name, O_RDWR);
+#ifndef WIN32
 		if (com_port < 0 || tcgetattr(com_port, &tty)) {
 			fprintf(stderr, "Can't open %s\n", com_name);
 			exit(EXIT_FAILURE);
@@ -2991,6 +2992,7 @@ main(int argc, char *argv[])
 			exit(EXIT_FAILURE);
 		}
 		res = fcntl(com_port, F_SETFL, O_NONBLOCK);
+#endif /* !WIN32 */
 	default:
 		/* can't happen, shut up gcc warnings */
 		break;
