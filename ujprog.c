@@ -2706,9 +2706,10 @@ term_emul(void)
 			FT_GetStatus(ftHandle, &rx_cnt, &ev_stat, &ev_stat);
 			if (rx_cnt > BUFLEN_MAX)
 				rx_cnt = BUFLEN_MAX;
-			if (rx_cnt) {
+			if (rx_cnt)
 				FT_Read(ftHandle, txbuf, rx_cnt, &rx_cnt);
 		} else {
+			rx_cnt = 32;
 			ReadFile(com_port, txbuf, rx_cnt,
 				    (DWORD *) &rx_cnt, NULL);
 		}
@@ -2725,8 +2726,8 @@ term_emul(void)
 			if (rx_cnt == -1)
 				rx_cnt = 0;
 		}
-		if (rx_cnt) {
 #endif
+		if (rx_cnt) {
 			if (rx_cnt < 0) {
 				res = 1;
 				goto done;
@@ -2865,6 +2866,7 @@ main(int argc, char *argv[])
 	int c;
 #ifdef WIN32
 	int had_terminal = 0;
+	COMMTIMEOUTS com_to;
 #endif
 
 #ifdef WIN32
@@ -3014,10 +3016,15 @@ main(int argc, char *argv[])
 		tty.StopBits = 0;
 		tty.Parity = 0;
 		tty.ByteSize = 8;
-		if (SetCommState(com_port, &tty) == 0) {
+		if (SetCommState(com_port, &tty) == 0 ||
+		    GetCommTimeouts(com_port, &com_to) == 0) {
 			fprintf(stderr, "Can't set baudrate to %d\n", bauds);
 			exit(EXIT_FAILURE);
 		}
+		com_to.ReadIntervalTimeout = 1;
+		com_to.ReadTotalTimeoutConstant = 1;
+		com_to.ReadTotalTimeoutMultiplier = 1;
+		SetCommTimeouts(com_port, &com_to);
 		res = 0;
 #else
 		com_port = open(com_name, O_RDWR);
