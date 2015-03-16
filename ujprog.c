@@ -2325,7 +2325,9 @@ txfile(void)
 		ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
 		ftdi_setflowctrl(&fc, SIO_XON_XOFF_HS);
 		ftdi_usb_purge_buffers(&fc);
-		ms_sleep(50); /* XXX: OS-X needs this */
+#ifdef __APPLE__
+		ms_sleep(50); /* Without this OS-X garbles output */
+#endif
 #endif
 	}
 
@@ -2408,9 +2410,6 @@ txfile(void)
 #ifdef WIN32
 				WriteFile(com_port, txbuf, tx_cnt,
 				    (DWORD *) &sent, NULL);
-if (sent != tx_cnt) {
-printf("XXXX\n\nXXXXXX\n\nXXXXX\n sent %d tx_cnt %d\n", sent, tx_cnt);
-}
 #else
 				sent = write(com_port, txbuf, tx_cnt);
 #endif
