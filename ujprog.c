@@ -195,15 +195,17 @@ static int txfu_ms;		/* txt file upload character delay (ms) */
 static int tx_binary;		/* send in raw (0) or binary (1) format */
 static const char *txfname;	/* file to send */
 static const char *com_name;	/* COM / TTY port name for -a or -t */
-static int com_port;		/* COM port file */
 
 
 #ifdef WIN32
 static FT_HANDLE ftHandle;	/* USB port handle */
+static HANDLE com_port;		/* COM port file */
+static struct _DCB tty;		/* COM port TTY handle */
 static int quick_mode = 1;
 #else
-static struct termios tty;	/* COM port TTY handle */
 static struct ftdi_context fc;	/* USB port handle */
+static int com_port;		/* COM port file */
+static struct termios tty;	/* COM port TTY handle */
 #ifdef USE_PPI
 static int ppi;			/* Parallel port handle */
 #endif
@@ -2403,7 +2405,15 @@ txfile(void)
 				sent = ftdi_write_data(&fc, txbuf, tx_cnt);
 #endif
 			} else {/* cable_hw == CABLE_HW_COM */
+#ifdef WIN32
+				WriteFile(com_port, txbuf, tx_cnt,
+				    (DWORD *) &sent, NULL);
+if (sent != tx_cnt) {
+printf("XXXX\n\nXXXXXX\n\nXXXXX\n sent %d tx_cnt %d\n", sent, tx_cnt);
+}
+#else
 				sent = write(com_port, txbuf, tx_cnt);
+#endif
 			}
 			if (sent != tx_cnt)
 				infile = -1;
@@ -2679,7 +2689,12 @@ term_emul(void)
 				sent = ftdi_write_data(&fc, txbuf, tx_cnt);
 #endif
 			} else {/* cable_hw == CABLE_HW_COM */
+#ifdef WIN32
+				WriteFile(com_port, txbuf, tx_cnt,
+				    (DWORD *) &sent, NULL);
+#else
 				sent = write(com_port, txbuf, tx_cnt);
+#endif
 			}
 			if (sent != tx_cnt) {
 				res = 1;
@@ -2688,20 +2703,25 @@ term_emul(void)
 		}
 
 #ifdef WIN32
-		FT_GetStatus(ftHandle, &rx_cnt, &ev_stat, &ev_stat);
-		if (rx_cnt > BUFLEN_MAX)
-			rx_cnt = BUFLEN_MAX;
-		if (rx_cnt) {
-			FT_Read(ftHandle, txbuf, rx_cnt, &rx_cnt);
+		if (cable_hw == CABLE_HW_USB) {
+			FT_GetStatus(ftHandle, &rx_cnt, &ev_stat, &ev_stat);
+			if (rx_cnt > BUFLEN_MAX)
+				rx_cnt = BUFLEN_MAX;
+			if (rx_cnt) {
+				FT_Read(ftHandle, txbuf, rx_cnt, &rx_cnt);
+		} else {
+			ReadFile(com_port, txbuf, rx_cnt,
+				    (DWORD *) &rx_cnt, NULL);
+		}
 #else
 		rx_cnt = 1;
-		if (rx_cnt < fc.readbuffer_remaining)
-			rx_cnt = fc.readbuffer_remaining;
-		if (rx_cnt > BUFLEN_MAX)
-			rx_cnt = BUFLEN_MAX;
-		if (cable_hw == CABLE_HW_USB)
+		if (cable_hw == CABLE_HW_USB) {
+			if (rx_cnt < fc.readbuffer_remaining)
+				rx_cnt = fc.readbuffer_remaining;
+			if (rx_cnt > BUFLEN_MAX)
+				rx_cnt = BUFLEN_MAX;
 			rx_cnt = ftdi_read_data(&fc, txbuf, rx_cnt);
-		else {
+		} else {
 			rx_cnt = read(com_port, txbuf, rx_cnt);
 			if (rx_cnt == -1)
 				rx_cnt = 0;
@@ -2844,6 +2864,9 @@ main(int argc, char *argv[])
 	int jed_target = JED_TGT_SRAM;
 	int debug = 0;
 	int c;
+#ifdef WIN32
+	int had_terminal = 0;
+#endif
 
 #ifdef WIN32
 #define OPTS	"qtdj:b:p:P:a:e:D:rs"
@@ -2916,6 +2939,9 @@ main(int argc, char *argv[])
 #endif
 		case 't':
 			terminal = 1;
+#ifdef WIN32
+			had_terminal = 1;
+#endif
 			break;
 		case '?':
 		default:
@@ -2953,8 +2979,10 @@ main(int argc, char *argv[])
 	}
 
 #ifdef WIN32
-	if (terminal)
+	if (terminal) {
+		system("color 0a");
 		system("cls");
+	}
 #endif
 
 	switch (cable_hw) {
@@ -2969,9 +2997,31 @@ main(int argc, char *argv[])
 	case CABLE_HW_PPI:
 		res = setup_ppi();
 #endif
+		break;
 	case CABLE_HW_COM:
+#ifdef WIN32
+		sprintf(txbuf, "\\\\.\\%s", com_name);
+		com_port = CreateFile(txbuf,  GENERIC_READ | GENERIC_WRITE, 
+                    0, NULL, OPEN_EXISTING, 0, NULL);
+		if (com_port == INVALID_HANDLE_VALUE) {
+			fprintf(stderr, "Can't open %s\n", com_name);
+			exit(EXIT_FAILURE);
+		}
+		if (GetCommState(com_port, &tty) == 0) {
+			fprintf(stderr, "%s is not a COM port\n", com_name);
+			exit(EXIT_FAILURE);
+		}
+		tty.BaudRate = bauds;
+		tty.StopBits = 0;
+		tty.Parity = 0;
+		tty.ByteSize = 8;
+		if (SetCommState(com_port, &tty) == 0) {
+			fprintf(stderr, "Can't set baudrate to %d\n", bauds);
+			exit(EXIT_FAILURE);
+		}
+		res = 0;
+#else
 		com_port = open(com_name, O_RDWR);
-#ifndef WIN32
 		if (com_port < 0 || tcgetattr(com_port, &tty)) {
 			fprintf(stderr, "Can't open %s\n", com_name);
 			exit(EXIT_FAILURE);
@@ -3027,7 +3077,18 @@ main(int argc, char *argv[])
 			txfile();
 	} while (terminal && term_emul() == 0);
 
-	if (cable_hw == CABLE_HW_USB)
+#ifdef WIN32
+	if (had_terminal)
+		system("color");
+#endif
+
+	if (cable_hw == CABLE_HW_COM) {
+#ifdef WIN32
+		CloseHandle(com_port);
+#else
+		close(com_port);
+#endif
+	} else if (cable_hw == CABLE_HW_USB)
 		shutdown_usb();
 #ifdef USE_PPI
 	else
