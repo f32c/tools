@@ -175,6 +175,8 @@ static struct cable_hw_map {
 
 #define	LED_BLINK_RATE		250
 
+#define	BREAK_MS		250
+
 static char *statc = "-\\|/";
 
 /* Runtime globals */
@@ -382,7 +384,7 @@ setup_usb(void)
 	}
 	if (!quiet)
 		printf("Using USB cable: %s\n", Description);
-    
+
 	res = FT_SetBaudRate(ftHandle, USB_BAUDS);
 	if (res != FT_OK) {
 		fprintf(stderr, "FT_SetBaudRate() failed\n");
@@ -1288,7 +1290,7 @@ exec_svf_tokenized(int tokc, char *tokv[])
 			txpos++;
 			txbuf[txpos] = txbuf[txpos-2];
 			txpos++;
-	    		if (txpos >= sizeof(txbuf) / 2) {
+			if (txpos >= sizeof(txbuf) / 2) {
 				commit(0);
 				if (need_led_blink)
 					set_port_mode(port_mode);
@@ -2106,6 +2108,7 @@ terminal_help(void)
 	    "  ~b	change baudrate\n"
 	    "  ~r	reprogram / reload "
 		"the FPGA\n"
+	    "  ~#	send a BREAK signal\n"
 	    "  ~.	exit from ujprog\n"
 	    "  ~?	get this summary\n"
 	);
@@ -2294,7 +2297,7 @@ txfile(void)
 		len = ftell(fd);
 		fseek(fd, 0, SEEK_SET);
 		fclose(fd);
-		base = 0x80000000;
+		base = 0x80000000; /* XXX hardcoded - revisit! */
 	}
 
 	infile = open(txfname,
@@ -2434,6 +2437,36 @@ txfile(void)
 		FT_SetBaudRate(ftHandle, USB_BAUDS);
 #else
 		ftdi_set_baudrate(&fc, USB_BAUDS);
+#endif
+	}
+}
+
+
+static void
+genbrk(void)
+{
+
+	if (cable_hw == CABLE_HW_USB) {
+#ifdef WIN32
+		FT_SetBreakOn(ftHandle);
+		ms_sleep(BREAK_MS);
+		FT_SetBreakOff(ftHandle);
+#else
+		ftdi_set_line_property2(&fc, BITS_8, STOP_BIT_1, NONE,
+		    BREAK_ON);
+		ms_sleep(BREAK_MS);
+		ftdi_set_line_property2(&fc, BITS_8, STOP_BIT_1, NONE,
+		    BREAK_OFF);
+#endif
+	} else {
+#ifdef WIN32
+		EscapeCommFunction(com_port, SETBREAK);
+		ms_sleep(BREAK_MS);
+		EscapeCommFunction(com_port, CLRBREAK);
+#else
+		ioctl(com_port, TIOCSBRK, NULL);
+		ms_sleep(BREAK_MS);
+		ioctl(com_port, TIOCCBRK, NULL);
 #endif
 	}
 }
@@ -2609,6 +2642,9 @@ term_emul(void)
 					printf("~?\n");
 					terminal_help();
 					continue;
+				case '#':
+					genbrk();
+					continue;
 				case 'r':
 					reload = 1;
 					res = 0;
@@ -2711,7 +2747,7 @@ term_emul(void)
 		} else {
 			rx_cnt = 32;
 			ReadFile(com_port, txbuf, rx_cnt,
-				    (DWORD *) &rx_cnt, NULL);
+			    (DWORD *) &rx_cnt, NULL);
 		}
 #else
 		rx_cnt = 1;
@@ -2906,7 +2942,6 @@ main(int argc, char *argv[])
 		case 'e':
 			txfname = optarg;
 			tx_binary = 1;
-			reload = 1;
 			break;
 		case 'j':
 			if (strcmp(optarg, "sram") == 0 ||
@@ -2961,9 +2996,9 @@ main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	};
 
-	if (com_name && terminal == 0 && txfname == NULL) {
+	if (com_name && terminal == 0 && txfname == NULL && reload == 0) {
 		fprintf(stderr, "error: "
-		    "option -P must be used with -t or -a\n");
+		    "option -P must be used with -r, -t or -a\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -3003,7 +3038,7 @@ main(int argc, char *argv[])
 #ifdef WIN32
 		sprintf(txbuf, "\\\\.\\%s", com_name);
 		com_port = CreateFile(txbuf,  GENERIC_READ | GENERIC_WRITE, 
-                    0, NULL, OPEN_EXISTING, 0, NULL);
+		    0, NULL, OPEN_EXISTING, 0, NULL);
 		if (com_port == INVALID_HANDLE_VALUE) {
 			fprintf(stderr, "Can't open %s\n", com_name);
 			exit(EXIT_FAILURE);
@@ -3073,9 +3108,13 @@ main(int argc, char *argv[])
 	}
 
 	do {
-		if (reload)
-			reload_xp2_flash(debug);
-		reload = 0;
+		if (reload) {
+			if (cable_hw == CABLE_HW_USB)
+				reload_xp2_flash(debug);
+			else
+				genbrk();
+			reload = 0;
+		}
 		if (argc)
 			prog(argv[0], jed_target, debug);
 		jed_target = JED_TGT_SRAM; /* for subsequent prog() calls */
