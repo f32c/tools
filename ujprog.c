@@ -41,6 +41,10 @@ static const char *idstr = "$Id$";
 #define USE_PPI
 #endif
 
+#ifdef __linux__
+#include <sys/ioctl.h>
+#endif
+
 #ifdef WIN32
 #include <windows.h>
 #include <ftd2xx.h>

@@ -1,6 +1,6 @@
 
 SRCS = ujprog.c
-CFLAGS += -Wall
+CFLAGS += -Wall -D__linux__
 #FTLIB = /usr/lib/`uname -m`-linux-gnu/libftdi.a
 FTLIB = -lftdi
 
