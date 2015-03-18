@@ -2417,7 +2417,9 @@ txfile(void)
 				WriteFile(com_port, txbuf, tx_cnt,
 				    (DWORD *) &sent, NULL);
 #else
+				fcntl(com_port, F_SETFL, 0);
 				sent = write(com_port, txbuf, tx_cnt);
+				fcntl(com_port, F_SETFL, O_NONBLOCK);
 #endif
 			}
 			if (sent != tx_cnt)
@@ -2734,7 +2736,9 @@ term_emul(void)
 				WriteFile(com_port, txbuf, tx_cnt,
 				    (DWORD *) &sent, NULL);
 #else
+				fcntl(com_port, F_SETFL, 0);
 				sent = write(com_port, txbuf, tx_cnt);
+				fcntl(com_port, F_SETFL, O_NONBLOCK);
 #endif
 			}
 			if (sent != tx_cnt) {
