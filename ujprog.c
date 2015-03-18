@@ -37,8 +37,6 @@ static const char *idstr = "$Id$";
 #include <string.h>
 #include <unistd.h>
 
-#include <sys/ioctl.h>
-
 #ifdef __FreeBSD__
 #define USE_PPI
 #endif
@@ -47,6 +45,7 @@ static const char *idstr = "$Id$";
 #include <windows.h>
 #include <ftd2xx.h>
 #else
+#include <sys/ioctl.h>
 #include <sys/time.h>
 #include <termios.h>
 #ifdef USE_PPI
