@@ -37,12 +37,10 @@ static const char *idstr = "$Id$";
 #include <string.h>
 #include <unistd.h>
 
+#include <sys/ioctl.h>
+
 #ifdef __FreeBSD__
 #define USE_PPI
-#endif
-
-#ifdef __linux__
-#include <sys/ioctl.h>
 #endif
 
 #ifdef WIN32
