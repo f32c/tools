@@ -2277,7 +2277,6 @@ reload_xp2_flash(int debug)
 	exec_svf_mem(buf, 4, debug);
 
 	/* Leave TAP in RESET state. */
-	set_port_mode(PORT_MODE_ASYNC);
 	set_state(IDLE);
 	set_state(RESET);
 	commit(1);
@@ -2392,8 +2391,8 @@ txfile(void)
 	do {
 		if (!quiet) {
 			printf("%c ", statc[blinker_phase]);
-			fflush(stdout);
 			printf("\rSending %s: ", txfname);
+			fflush(stdout);
 			blinker_phase = (blinker_phase + 1) & 0x3;
 		}
 		res = read(infile, txbuf, i);
@@ -2473,6 +2472,7 @@ genbrk(void)
 		ioctl(com_port, TIOCCBRK, NULL);
 #endif
 	}
+	ms_sleep(20);
 }
 
 
@@ -2994,13 +2994,20 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
+#ifdef WIN32
+	if (terminal) {
+		system("color 0a");
+		system("cls");
+	}
+#endif
+
 	if (!quiet)
 		printf("%s %s\n", verstr, idstr);
 
 	if (argc == 0 && terminal == 0 && txfname == NULL && reload == 0) {
 		usage();
 		exit(EXIT_FAILURE);
-	};
+	}
 
 	if (com_name && terminal == 0 && txfname == NULL && reload == 0) {
 		fprintf(stderr, "error: "
@@ -3019,13 +3026,6 @@ main(int argc, char *argv[])
 		    "options -P and -c are mutualy exclusive\n");
 		exit(EXIT_FAILURE);
 	}
-
-#ifdef WIN32
-	if (terminal) {
-		system("color 0a");
-		system("cls");
-	}
-#endif
 
 	switch (cable_hw) {
 	case CABLE_HW_UNKNOWN:
