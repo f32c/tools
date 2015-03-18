@@ -2645,9 +2645,11 @@ term_emul(void)
 				case '?':
 					printf("~?\n");
 					terminal_help();
+					key_phase = 0;
 					continue;
 				case '#':
 					genbrk();
+					key_phase = 0;
 					continue;
 				case 'r':
 					reload = 1;
