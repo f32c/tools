@@ -2416,7 +2416,7 @@ txfile(void)
 		ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
 		ftdi_setflowctrl(&fc, SIO_DISABLE_FLOW_CTRL);
 		ftdi_usb_purge_buffers(&fc);
-		ms_sleep(50);
+		ms_sleep(100);
 #endif
 	}
 
@@ -2478,14 +2478,16 @@ txfile(void)
 			for (csum_i = 0; csum_i < tx_cnt; csum_i++)
 				local_csum += txbuf[csum_i];
 			if (async_send_block(tx_cnt)) {
-				tx_cnt = -tx_cnt;
+				fprintf(stderr, "Block sending failed!\n");
+				tx_cnt = -1;
 				break;
 			}
 
 			async_send_uint8(0x81);	/* CMD: read csum */
 			res = async_read_block(4);
 			if (res != 4) {
-				tx_cnt = -tx_cnt;
+				fprintf(stderr, "Checksum not received!\n");
+				tx_cnt = -1;
 				break;
 			}
 			rx_csum = rxbuf[0] << 24;
@@ -2494,7 +2496,7 @@ txfile(void)
 			rx_csum += rxbuf[3];
 			if (rx_csum != local_csum) {
 				fprintf(stderr, "Checksum error!\n");
-				tx_cnt = -tx_cnt;
+				tx_cnt = -1;
 				break;
 			}
 
@@ -2508,7 +2510,7 @@ txfile(void)
 	fflush(stdout);
 
 	if (tx_cnt < 0)
-		fprintf(stderr, "TX error at byte %d\n", -tx_cnt);
+		fprintf(stderr, "TX error at byte %d\n", base - 0x80000000);
 	else {
 		async_send_uint8(0x80);	/* CMD: set base */
 		async_send_uint32(bauds);
