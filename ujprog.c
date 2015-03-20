@@ -25,7 +25,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 2.alpha";
+static const char *verstr = "ULX2S JTAG programmer v 2.alpha1";
 static const char *idstr = "$Id$";
 
 
@@ -182,7 +182,8 @@ static char *statc = "-\\|/";
 
 /* Runtime globals */
 static int cur_s = UNDEFINED;
-static unsigned char txbuf[8 * BUFLEN_MAX];
+static uint8_t txbuf[8 * BUFLEN_MAX];
+static uint8_t rxbuf[8 * BUFLEN_MAX];
 static int txpos;
 static int need_led_blink;	/* Schedule CBUS led toggle */
 static int last_ledblink_ms;	/* Last time we toggled the CBUS LED */
@@ -2280,10 +2281,97 @@ reload_xp2_flash(int debug)
 }
 
 
+static int
+async_read_block(int len)
+{
+	int res, got = 0, backoff = 0;
+
+	if (cable_hw == CABLE_HW_USB) {
+		do {
+			res = ftdi_read_data(&fc, &rxbuf[got], len - got);
+			if (res > 0) {
+				got += res;
+				backoff = 0;
+			} else {
+				backoff++;
+				ms_sleep(backoff * 4);
+			}
+		} while (got < len && backoff < 5);
+	}
+	return (got);
+}
+
+
+static int
+async_send_block(int len)
+{
+	int sent;
+
+	if (cable_hw == CABLE_HW_USB) {
+#ifdef WIN32
+		FT_Write(ftHandle, txbuf, len, (DWORD *) &sent);
+#else
+		sent = ftdi_write_data(&fc, txbuf, len);
+#endif
+	} else {
+#ifdef WIN32
+		WriteFile(com_port, txbuf, len, (DWORD *) &sent, NULL);
+#else
+		fcntl(com_port, F_SETFL, 0);
+		sent = write(com_port, txbuf, len);
+		fcntl(com_port, F_SETFL, O_NONBLOCK);
+#endif
+	}
+
+	if (sent == len)
+		return (0);
+	else
+		return (1);
+}
+
+
+static void
+async_send_uint8(uint32_t data)
+{
+
+	txbuf[0] = data;
+	async_send_block(1);
+}
+
+
+static void
+async_send_uint32(uint32_t data)
+{
+	int i;
+
+	for (i = 0; i < 4; i++) {
+		txbuf[i] = (data >> 24);
+		data <<= 8;
+	}
+	async_send_block(4);
+}
+
+
+static int
+async_set_baudrate(int speed)
+{
+
+	if (cable_hw == CABLE_HW_USB) {
+#ifdef WIN32
+		FT_SetBaudRate(ftHandle, speed);
+#else
+		ftdi_set_baudrate(&fc, speed);
+#endif
+	}
+	return (0);
+}
+
+
 static void
 txfile(void)
 {
-	int tx_cnt, i, sent, infile, res;
+	int tx_cnt, i, infile, res;
+	uint32_t rx_csum, local_csum, csum_i;
 	uint32_t base, len;
 	FILE *fd;
 
@@ -2314,67 +2402,43 @@ txfile(void)
 
 	if (cable_hw == CABLE_HW_USB) {
 		set_port_mode(PORT_MODE_UART);
+		async_set_baudrate(bauds);
 #ifdef WIN32
-		FT_SetBaudRate(ftHandle, bauds);
 		FT_SetDataCharacteristics(ftHandle, FT_BITS_8, FT_STOP_BITS_1,
 		    FT_PARITY_NONE);
+		/* XXX REVISIT XON XOFF */
 		FT_SetFlowControl(ftHandle, FT_FLOW_XON_XOFF, 0, 0);
 		do {} while (FT_StopInTask(ftHandle) != FT_OK);
 		ms_sleep(50);
 		FT_Purge(ftHandle, FT_PURGE_RX);
 		do {} while (FT_RestartInTask(ftHandle) != FT_OK);
 #else
-		ftdi_set_baudrate(&fc, bauds);
 		ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
-		ftdi_setflowctrl(&fc, SIO_XON_XOFF_HS);
+		ftdi_setflowctrl(&fc, SIO_DISABLE_FLOW_CTRL);
 		ftdi_usb_purge_buffers(&fc);
-#ifdef __APPLE__
-		ms_sleep(50); /* Without this OS-X garbles output */
-#endif
+		ms_sleep(50);
 #endif
 	}
 
-	/* Send a space mark to break into SIO loader prompt */
-	tx_cnt = 1;
-	txbuf[0] = ' ';
-	
 	if (cable_hw == CABLE_HW_USB) {
-#ifdef WIN32
-		FT_Write(ftHandle, txbuf, tx_cnt, (DWORD *) &sent);
-#else
-		sent = ftdi_write_data(&fc, txbuf, tx_cnt);
-#endif
+		/* Send a space mark to break into SIO loader prompt */
+		async_send_uint8(' ');
 		/* Wait for f32c ROM BIST to complete */
 		ms_sleep(200);
 	}
 
 	if (tx_binary) {
-		txbuf[0] = 255; /* Start of binary transfer marker */
-#ifdef WIN32
-		FT_Write(ftHandle, txbuf, 1, (DWORD *) &sent);
-#else
-		sent = ftdi_write_data(&fc, txbuf, 1);
-#endif
-		ms_sleep(5);
+		/* Prune any stale data from rx buffer */
+		async_read_block(2048);
 
-#ifdef WIN32
-		FT_SetBaudRate(ftHandle, 3000000);
-#else
-		ftdi_set_baudrate(&fc, 3000000);
-#endif
-		for (i = 0; i < 4; i++) {
-			txbuf[i] = base >> 24;
-			base <<= 8;
-		}
-		for (i = 4; i < 8; i++) {
-			txbuf[i] = len >> 24;
-			len <<= 8;
-		}
-#ifdef WIN32
-		FT_Write(ftHandle, txbuf, 8, (DWORD *) &sent);
-#else
-		sent = ftdi_write_data(&fc, txbuf, 8);
-#endif
+		/* Start of binary transfer marker */
+		async_send_uint8(255);
+
+		async_send_uint8(0x80);	/* CMD: set base */
+		async_send_uint32(3000000);
+		async_send_uint8(0xb0);	/* CMD: set baudrate */
+		async_set_baudrate(3000000);
+		ms_sleep(50);
 	}
 
 	i = bauds / 300;
@@ -2383,7 +2447,7 @@ txfile(void)
 	if (txfu_ms)
 		i = 1;
 	if (tx_binary)
-		i = 2048;
+		i = 8192;
 
 	do {
 		if (!quiet) {
@@ -2392,47 +2456,73 @@ txfile(void)
 			fflush(stdout);
 			blinker_phase = (blinker_phase + 1) & 0x3;
 		}
-		res = read(infile, txbuf, i);
+		res = read(infile, &txbuf[8192], i);
 		if (!tx_binary && txfu_ms)
 			ms_sleep(txfu_ms);
 		if (res <= 0) {
-			infile = -1;
 			tx_cnt = 0;
 		} else
 			tx_cnt = res;
 
 		if (tx_cnt) {
-			if (cable_hw == CABLE_HW_USB) {
-#ifdef WIN32
-				FT_Write(ftHandle, txbuf, tx_cnt,
-				    (DWORD *) &sent);
-#else
-				sent = ftdi_write_data(&fc, txbuf, tx_cnt);
-#endif
-			} else {/* cable_hw == CABLE_HW_COM */
-#ifdef WIN32
-				WriteFile(com_port, txbuf, tx_cnt,
-				    (DWORD *) &sent, NULL);
-#else
-				fcntl(com_port, F_SETFL, 0);
-				sent = write(com_port, txbuf, tx_cnt);
-				fcntl(com_port, F_SETFL, O_NONBLOCK);
-#endif
+			async_send_uint8(0x80);	/* CMD: set base */
+			async_send_uint32(tx_cnt);
+			async_send_uint8(0x90);	/* CMD: len = base */
+
+			async_send_uint8(0x80);	/* CMD: set base */
+			async_send_uint32(base);
+
+			async_send_uint8(0xa0);	/* CMD: Write block */
+			bcopy(&txbuf[8192], txbuf, tx_cnt);
+			local_csum = 0;
+			for (csum_i = 0; csum_i < tx_cnt; csum_i++)
+				local_csum += txbuf[csum_i];
+			if (async_send_block(tx_cnt)) {
+				tx_cnt = -tx_cnt;
+				break;
 			}
-			if (sent != tx_cnt)
-				infile = -1;
+
+			async_send_uint8(0x81);	/* CMD: read csum */
+			res = async_read_block(4);
+			if (res != 4) {
+				tx_cnt = -tx_cnt;
+				break;
+			}
+			rx_csum = rxbuf[0] << 24;
+			rx_csum += rxbuf[1] << 16;
+			rx_csum += rxbuf[2] << 8;
+			rx_csum += rxbuf[3];
+			if (rx_csum != local_csum) {
+				fprintf(stderr, "Checksum error!\n");
+				tx_cnt = -tx_cnt;
+				break;
+			}
+
+			base += tx_cnt;
 		}
-	} while (infile > 0);
+	} while (tx_cnt);
 
 	if (!quiet)
 		printf("done.\n");
-	fflush(stdout);
 	close(infile);
+	fflush(stdout);
 
-	if (tx_binary)
-		ms_sleep(2)
-	else
-		ms_sleep(20);
+	if (tx_cnt < 0)
+		fprintf(stderr, "TX error at byte %d\n", -tx_cnt);
+	else {
+		async_send_uint8(0x80);	/* CMD: set base */
+		async_send_uint32(bauds);
+		async_send_uint8(0xb0);	/* CMD: set baudrate */
+		async_set_baudrate(bauds);
+		ms_sleep(50);
+
+		base = 0x80000000; /* XXX hardcoded, revisit!!! */
+		async_send_uint8(0x80);	/* CMD: set base */
+		async_send_uint32(base);
+		async_send_uint8(0xb1);	/* CMD: jump to base */
+	}
+
+	ms_sleep(20);
 
 	if (cable_hw == CABLE_HW_USB) {
 #ifdef WIN32
