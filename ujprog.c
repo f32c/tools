@@ -25,7 +25,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 2.alpha1";
+static const char *verstr = "ULX2S JTAG programmer v 2.beta0";
 static const char *idstr = "$Id$";
 
 
@@ -2545,16 +2545,6 @@ txfile(void)
 		async_send_uint32(base);
 		async_send_uint8(0xb1);	/* CMD: jump to base */
 	}
-
-	ms_sleep(20);
-
-	if (cable_hw == CABLE_HW_USB) {
-#ifdef WIN32
-		FT_SetBaudRate(ftHandle, USB_BAUDS);
-#else
-		ftdi_set_baudrate(&fc, USB_BAUDS);
-#endif
-	}
 }
 
 
@@ -2617,7 +2607,6 @@ term_emul(void)
 	char argbuf[256];
 	int i;
 	
-	set_port_mode(PORT_MODE_UART);
 #ifdef WIN32
 	if (cable_hw == CABLE_HW_USB) {
 		FT_SetLatencyTimer(ftHandle, 20);
@@ -2625,10 +2614,13 @@ term_emul(void)
 		FT_SetDataCharacteristics(ftHandle, FT_BITS_8, FT_STOP_BITS_1,
 		    FT_PARITY_NONE);
 		FT_SetFlowControl(ftHandle, FT_FLOW_NONE, 0, 0);
-		do {} while (FT_StopInTask(ftHandle) != FT_OK);
-		ms_sleep(50);
-		FT_Purge(ftHandle, FT_PURGE_RX);
-		do {} while (FT_RestartInTask(ftHandle) != FT_OK);
+		if (port_mode != PORT_MODE_UART) {
+			set_port_mode(PORT_MODE_UART);
+			do {} while (FT_StopInTask(ftHandle) != FT_OK);
+			ms_sleep(50);
+			FT_Purge(ftHandle, FT_PURGE_RX);
+			do {} while (FT_RestartInTask(ftHandle) != FT_OK);
+		}
 	}
 
 	/* Disable CTRL-C, XON/XOFF etc. processing on console input. */
@@ -2647,7 +2639,10 @@ term_emul(void)
 		ftdi_set_baudrate(&fc, bauds);
 		ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
 		ftdi_setflowctrl(&fc, SIO_DISABLE_FLOW_CTRL);
-		ftdi_usb_purge_buffers(&fc);
+		if (port_mode != PORT_MODE_UART) {
+			set_port_mode(PORT_MODE_UART);
+			ftdi_usb_purge_buffers(&fc);
+		}
 	}
 
 	/* Disable CTRL-C, XON/XOFF etc. processing on console input. */
