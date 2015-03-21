@@ -2499,7 +2499,7 @@ txfile(void)
 			res = async_read_block(4);
 			if (res != 4) {
 				fprintf(stderr, "Checksum not received: "
-				    "got %d bytes, should be 4", res);
+				    "got %d bytes, should be 4\n", res);
 				tx_cnt = -1;
 				break;
 			}
