@@ -2288,7 +2288,19 @@ async_read_block(int len)
 
 	if (cable_hw == CABLE_HW_USB) {
 		do {
+#ifdef WIN32
+			DWORD ev_stat, avail;
+			FT_GetStatus(ftHandle, &avail, &ev_stat, &ev_stat);
+			if (avail > len - got)
+				avail = len - got;
+			if (avail)
+				FT_Read(ftHandle, &rxbuf[got], avail,
+				    (DWORD *) &res);
+			else
+				res = 0;
+#else
 			res = ftdi_read_data(&fc, &rxbuf[got], len - got);
+#endif
 			if (res > 0) {
 				got += res;
 				backoff = 0;
@@ -2406,8 +2418,7 @@ txfile(void)
 #ifdef WIN32
 		FT_SetDataCharacteristics(ftHandle, FT_BITS_8, FT_STOP_BITS_1,
 		    FT_PARITY_NONE);
-		/* XXX REVISIT XON XOFF */
-		FT_SetFlowControl(ftHandle, FT_FLOW_XON_XOFF, 0, 0);
+		FT_SetFlowControl(ftHandle, FT_FLOW_NONE, 0, 0);
 		do {} while (FT_StopInTask(ftHandle) != FT_OK);
 		ms_sleep(50);
 		FT_Purge(ftHandle, FT_PURGE_RX);
@@ -2416,15 +2427,12 @@ txfile(void)
 		ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
 		ftdi_setflowctrl(&fc, SIO_DISABLE_FLOW_CTRL);
 		ftdi_usb_purge_buffers(&fc);
-		ms_sleep(100);
+		ms_sleep(50);
 #endif
-	}
-
-	if (cable_hw == CABLE_HW_USB) {
 		/* Send a space mark to break into SIO loader prompt */
 		async_send_uint8(' ');
 		/* Wait for f32c ROM BIST to complete */
-		ms_sleep(200);
+		ms_sleep(50);
 	}
 
 	if (tx_binary) {
@@ -2437,8 +2445,8 @@ txfile(void)
 		async_send_uint8(0x80);	/* CMD: set base */
 		async_send_uint32(3000000);
 		async_send_uint8(0xb0);	/* CMD: set baudrate */
-		async_set_baudrate(3000000);
 		ms_sleep(50);
+		async_set_baudrate(3000000);
 	}
 
 	i = bauds / 300;
@@ -2473,10 +2481,11 @@ txfile(void)
 			async_send_uint32(base);
 
 			async_send_uint8(0xa0);	/* CMD: Write block */
-			bcopy(&txbuf[8192], txbuf, tx_cnt);
 			local_csum = 0;
-			for (csum_i = 0; csum_i < tx_cnt; csum_i++)
+			for (csum_i = 0; csum_i < tx_cnt; csum_i++) {
+				txbuf[csum_i] = txbuf[csum_i + 8192];
 				local_csum += txbuf[csum_i];
+			}
 			if (async_send_block(tx_cnt)) {
 				fprintf(stderr, "Block sending failed!\n");
 				tx_cnt = -1;
@@ -2486,7 +2495,8 @@ txfile(void)
 			async_send_uint8(0x81);	/* CMD: read csum */
 			res = async_read_block(4);
 			if (res != 4) {
-				fprintf(stderr, "Checksum not received!\n");
+				fprintf(stderr, "Checksum not received: "
+				    "got %d bytes, should be 4", res);
 				tx_cnt = -1;
 				break;
 			}
@@ -2495,7 +2505,9 @@ txfile(void)
 			rx_csum += rxbuf[2] << 8;
 			rx_csum += rxbuf[3];
 			if (rx_csum != local_csum) {
-				fprintf(stderr, "Checksum error!\n");
+				fprintf(stderr, "Checksum error: "
+				    "got %08x, should be %08x\n",
+				    rx_csum, local_csum);
 				tx_cnt = -1;
 				break;
 			}
@@ -2504,19 +2516,19 @@ txfile(void)
 		}
 	} while (tx_cnt);
 
-	if (!quiet)
+	if (tx_cnt >= 0 && !quiet)
 		printf("done.\n");
 	close(infile);
 	fflush(stdout);
 
 	if (tx_cnt < 0)
 		fprintf(stderr, "TX error at byte %d\n", base - 0x80000000);
-	else {
+	else if (tx_binary) {
 		async_send_uint8(0x80);	/* CMD: set base */
 		async_send_uint32(bauds);
 		async_send_uint8(0xb0);	/* CMD: set baudrate */
-		async_set_baudrate(bauds);
 		ms_sleep(50);
+		async_set_baudrate(bauds);
 
 		base = 0x80000000; /* XXX hardcoded, revisit!!! */
 		async_send_uint8(0x80);	/* CMD: set base */
