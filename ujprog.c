@@ -2431,14 +2431,15 @@ txfile(void)
 #endif
 		/* Send a space mark to break into SIO loader prompt */
 		async_send_uint8(' ');
+
 		/* Wait for f32c ROM BIST to complete */
-		ms_sleep(50);
+		ms_sleep(100);
 	}
 
-	if (tx_binary) {
-		/* Prune any stale data from rx buffer */
-		async_read_block(2048);
+	/* Prune any stale data from rx buffer */
+	async_read_block(2048);
 
+	if (tx_binary) {
 		/* Start of binary transfer marker */
 		async_send_uint8(255);
 
@@ -2472,7 +2473,10 @@ txfile(void)
 		} else
 			tx_cnt = res;
 
-		if (tx_cnt) {
+		if (tx_cnt == 0)
+			break;
+
+		if (tx_binary) {
 			async_send_uint8(0x80);	/* CMD: set base */
 			async_send_uint32(tx_cnt);
 			async_send_uint8(0x90);	/* CMD: len = base */
@@ -2511,10 +2515,16 @@ txfile(void)
 				tx_cnt = -1;
 				break;
 			}
-
-			base += tx_cnt;
+		} else {
+			memcpy(txbuf, &txbuf[8192], tx_cnt);
+			if (async_send_block(tx_cnt)) {
+				fprintf(stderr, "Block sending failed!\n");
+				tx_cnt = -1;
+				break;
+			}
 		}
-	} while (tx_cnt);
+		base += tx_cnt;
+	} while (tx_cnt > 0);
 
 	if (tx_cnt >= 0 && !quiet)
 		printf("done.\n");
