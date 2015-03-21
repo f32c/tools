@@ -320,9 +320,24 @@ set_port_mode(int mode)
 		break;
 
 	case PORT_MODE_UART:
+		res = 0;
+		if (port_mode == PORT_MODE_UART)
+			break;
+		/* Pull TCK low so that we don't incidentally pulse it. */
+		memset(txbuf, 0, 10);
 #ifdef WIN32
+		FT_Write(ftHandle, txbuf, 100, (DWORD *) &res);
+		if (res < 0) {
+			fprintf(stderr, "FT_Write() failed\n");
+			return (res);
+		}
 		res = FT_SetBitMode(ftHandle, 0, BITMODE_OFF);
 #else
+		res = ftdi_write_data(&fc, &txbuf[0], 10);
+		if (res < 0) {
+			fprintf(stderr, "ftdi_write_data() failed\n");
+			return (res);
+		}
 		res = ftdi_disable_bitbang(&fc);
 #endif
 		break;
@@ -438,14 +453,6 @@ shutdown_usb(void)
 {
 
 	int res;
-
-	/* Pull TCK low so that we don't incidentally pulse it on next run. */
-	memset(txbuf, 0, 100);
-	FT_Write(ftHandle, txbuf, 100, (DWORD *) &res);
-	if (res < 0) {
-		fprintf(stderr, "FT_Write() failed\n");
-		return (res);
-	}
 
 	/* Allow for the USB FIFO to drain, just in case. */
 	ms_sleep(10);
@@ -573,14 +580,6 @@ static int
 shutdown_usb(void)
 {
 	int res;
-
-	/* Pull TCK low so that we don't incidentally pulse it on next run. */
-	txbuf[0] = 0;
-	res = ftdi_write_data(&fc, &txbuf[0], 1);
-	if (res < 0) {
-		fprintf(stderr, "ftdi_write_data() failed\n");
-		return (res);
-	}
 
 	/* Clean up */
 	res = set_port_mode(PORT_MODE_UART);
@@ -2635,14 +2634,14 @@ term_emul(void)
 	SetConsoleTextAttribute(cons_out, color0);
 #else
 	if (cable_hw == CABLE_HW_USB) {
-		ftdi_set_latency_timer(&fc, 20);
-		ftdi_set_baudrate(&fc, bauds);
-		ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
-		ftdi_setflowctrl(&fc, SIO_DISABLE_FLOW_CTRL);
 		if (port_mode != PORT_MODE_UART) {
 			set_port_mode(PORT_MODE_UART);
 			ftdi_usb_purge_buffers(&fc);
 		}
+		ftdi_set_latency_timer(&fc, 20);
+		ftdi_set_baudrate(&fc, bauds);
+		ftdi_set_line_property(&fc, BITS_8, STOP_BIT_1, NONE);
+		ftdi_setflowctrl(&fc, SIO_DISABLE_FLOW_CTRL);
 	}
 
 	/* Disable CTRL-C, XON/XOFF etc. processing on console input. */
