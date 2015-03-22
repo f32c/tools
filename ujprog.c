@@ -2257,7 +2257,7 @@ reload_xp2_flash(int debug)
 	need_led_blink = 0;
 
 	/* Move TAP into RESET state. */
-	set_port_mode(PORT_MODE_ASYNC);
+	set_port_mode(PORT_MODE_SYNC);
 	set_state(IDLE);
 	set_state(RESET);
 	commit(1);
