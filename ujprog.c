@@ -2383,8 +2383,9 @@ txfile(void)
 {
 	int tx_cnt, i, infile, res;
 	uint32_t rx_csum, local_csum, csum_i;
-	uint32_t base, len;
+	uint32_t base, len, bootaddr;
 	FILE *fd;
+	uint8_t hdrbuf[16];
 
 	if (tx_binary) {
 		fd = fopen(txfname, "r");
@@ -2392,11 +2393,37 @@ txfile(void)
 			fprintf(stderr, "%s: cannot open\n", txfname);
 			return;
 		}
+		i = fread(hdrbuf, 1, 16, fd);
 		fseek(fd, 0, SEEK_END);
 		len = ftell(fd);
 		fseek(fd, 0, SEEK_SET);
 		fclose(fd);
-		base = 0x80000000; /* XXX hardcoded - revisit! */
+		if (i != 16) {
+			fprintf(stderr, "%s: short read\n", txfname);
+			return;
+		}
+		if (hdrbuf[2] == 0x10 && hdrbuf[3] == 0x3c &&
+		    hdrbuf[6] == 0x10 && hdrbuf[7] == 0x26 &&
+		    hdrbuf[10] == 0x11 && hdrbuf[11] == 0x3c &&
+		    hdrbuf[14] == 0x31 && hdrbuf[7] == 0x26) {
+			/* MIPS, little-endian cookie found */
+			base = (hdrbuf[1] << 24) + (hdrbuf[0] << 16)
+			    + (hdrbuf[5] << 8) + hdrbuf[4];
+		} else if (hdrbuf[2] == 0x10 && hdrbuf[3] == 0x3c &&
+		    hdrbuf[6] == 0x10 && hdrbuf[7] == 0x26 &&
+		    hdrbuf[10] == 0x11 && hdrbuf[11] == 0x3c &&
+		    hdrbuf[14] == 0x31 && hdrbuf[7] == 0x26) {
+			/* MIPS, big-endian cookie found */
+			/* XXX fixme */
+			base = 0;
+			fprintf(stderr, "%s: MIPS, big-endian UNSUPPORTED\n",
+			    txfname);
+		} else {
+			fprintf(stderr,
+			    "invalid file type, missing header cookie\n");
+			return;
+		}
+		bootaddr = base;
 	}
 
 	infile = open(txfname,
@@ -2442,11 +2469,13 @@ txfile(void)
 		/* Start of binary transfer marker */
 		async_send_uint8(255);
 
-		async_send_uint8(0x80);	/* CMD: set base */
-		async_send_uint32(3000000);
-		async_send_uint8(0xb0);	/* CMD: set baudrate */
-		ms_sleep(50);
-		async_set_baudrate(3000000);
+		if (bootaddr >= 0x80000000) {
+			async_send_uint8(0x80);	/* CMD: set base */
+			async_send_uint32(3000000);
+			async_send_uint8(0xb0);	/* CMD: set baudrate */
+			ms_sleep(50);
+			async_set_baudrate(3000000);
+		}
 	}
 
 	i = bauds / 300;
@@ -2531,17 +2560,18 @@ txfile(void)
 	fflush(stdout);
 
 	if (tx_cnt < 0)
-		fprintf(stderr, "TX error at byte %d\n", base - 0x80000000);
+		fprintf(stderr, "TX error at %08x\n", base);
 	else if (tx_binary) {
-		async_send_uint8(0x80);	/* CMD: set base */
-		async_send_uint32(bauds);
-		async_send_uint8(0xb0);	/* CMD: set baudrate */
-		ms_sleep(50);
-		async_set_baudrate(bauds);
+		if (bootaddr >= 0x80000000) {
+			async_send_uint8(0x80);	/* CMD: set base */
+			async_send_uint32(bauds);
+			async_send_uint8(0xb0);	/* CMD: set baudrate */
+			ms_sleep(50);
+			async_set_baudrate(bauds);
+		}
 
-		base = 0x80000000; /* XXX hardcoded, revisit!!! */
 		async_send_uint8(0x80);	/* CMD: set base */
-		async_send_uint32(base);
+		async_send_uint32(bootaddr);
 		async_send_uint8(0xb1);	/* CMD: jump to base */
 	}
 }
