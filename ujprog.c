@@ -2110,6 +2110,7 @@ terminal_help(void)
 	    "  ~r	reprogram / reload "
 		"the FPGA\n"
 	    "  ~#	send a BREAK signal\n"
+	    "  ~d	enter f32c debugger\n"
 	    "  ~.	exit from ujprog\n"
 	    "  ~?	get this summary\n"
 	);
@@ -2419,9 +2420,13 @@ txfile(void)
 			fprintf(stderr, "%s: MIPS, big-endian UNSUPPORTED\n",
 			    txfname);
 		} else {
+#if 0
 			fprintf(stderr,
 			    "invalid file type, missing header cookie\n");
 			return;
+#else
+			base = 0x200;
+#endif
 		}
 		bootaddr = base;
 	}
@@ -2605,6 +2610,78 @@ genbrk(void)
 #endif
 	}
 	ms_sleep(20);
+}
+
+
+static const char *mips_reg_names[] = {
+	"zr", "at", "v0", "v1", "a0", "a1", "a2", "a3",
+	"t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
+	"s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7",
+	"t8", "t9", "k0", "k1", "gp", "sp", "fp", "ra"
+};
+
+
+static void
+print_registers(void)
+{
+	int r, c, i;
+
+	for (r = 0; r < 8; r++) {
+		for (c = 0; c < 4; c++) {
+			printf("%2d (%s): ", r + 8 * c,
+			    mips_reg_names[r + 8 * c]);
+			for (i = 0; i < 4; i++)
+				printf("%02x",
+				    rxbuf[(r + 8 * c) * 4 + (3 - i)]);
+			if (c != 3)
+				printf("   ");
+		}
+		printf("\n");
+	}
+
+}
+
+
+static void
+debug_cmd(void)
+{
+	char cmdbuf[256];
+	int i;
+
+	/* Enable debugger */
+	printf("*** Entering debugger mode ***\n");
+	async_send_uint8(0x9d);
+	async_send_uint8(0xed);
+
+	do {
+		printf("db> ");
+		fflush(stdout);
+		gets1(cmdbuf, sizeof(cmdbuf));
+		for (i = 0; cmdbuf[i] != 0 ; i++) 
+			if (cmdbuf[i] != ' ' && cmdbuf[i] != 9)
+				break;
+		switch (cmdbuf[i]) {
+		case 'r':
+			async_send_uint8(0xa0);
+			async_send_uint8(0);
+			async_send_uint8(31);
+			i = async_read_block(32 * 4);
+			if (i != 32 * 4) {
+				printf("\nError: short read "
+				    "(%d instead of %d)\n", i, 32 * 4);
+				break;
+			}
+			print_registers();
+			break;
+		default:
+			break;
+		}
+	} while (cmdbuf[i] != '.');
+
+	/* Exit debugger */
+	printf("*** Exiting debugger mode ***\n");
+	async_send_uint8(0x9d);
+	async_send_uint8(0xdd);
 }
 
 
@@ -2835,6 +2912,10 @@ term_emul(void)
 					if (infile < 0)
 						printf("%s: cannot open\n",
 						    argbuf);
+					key_phase = 0;
+					continue;
+				case 'd':
+					debug_cmd();
 					key_phase = 0;
 					continue;
 				default:
