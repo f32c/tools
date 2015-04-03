@@ -2420,13 +2420,9 @@ txfile(void)
 			fprintf(stderr, "%s: MIPS, big-endian UNSUPPORTED\n",
 			    txfname);
 		} else {
-#if 0
 			fprintf(stderr,
 			    "invalid file type, missing header cookie\n");
 			return;
-#else
-			base = 0x200;
-#endif
 		}
 		bootaddr = base;
 	}
