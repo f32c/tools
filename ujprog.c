@@ -2641,6 +2641,7 @@ print_registers(void)
 static void
 debug_cmd(void)
 {
+	int seqn;
 	char cmdbuf[256];
 	int i;
 
@@ -2648,6 +2649,18 @@ debug_cmd(void)
 	printf("*** Entering debugger mode ***\n");
 	async_send_uint8(0x9d);
 	async_send_uint8(0xed);
+
+	/* Flush read buffer */
+	async_read_block(BUFLEN_MAX);
+
+	/* Fetch initial sequence number */
+	async_send_uint8(0x9d);
+	async_send_uint8(0xed);
+	i = async_read_block(1);
+	if (i == 0)
+		printf("Error: got no sequence number, "
+		    "debugger disfunctional!\n");
+	seqn = rxbuf[0];
 
 	do {
 		printf("db> ");
@@ -2661,6 +2674,15 @@ debug_cmd(void)
 			async_send_uint8(0xa0);
 			async_send_uint8(0);
 			async_send_uint8(31);
+			i = async_read_block(1);
+			if (i == 0)
+				printf("Error: got no sequence number, "
+				    "debugger disfunctional!\n");
+			if (rxbuf[0] != ((seqn + 1) & 0xff))
+				printf("Error: bad sequence number: "
+				    "got %d, should have %d\n", rxbuf[0],
+				    (seqn + 1) & 0xff);
+			seqn = rxbuf[0];
 			i = async_read_block(32 * 4);
 			if (i != 32 * 4) {
 				printf("\nError: short read "
