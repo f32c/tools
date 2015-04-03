@@ -2700,6 +2700,7 @@ debug_cmd(void)
 	printf("*** Exiting debugger mode ***\n");
 	async_send_uint8(0x9d);
 	async_send_uint8(0xdd);
+	async_read_block(1);
 }
 
 
