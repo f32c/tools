@@ -2616,11 +2616,32 @@ static const char *mips_reg_names[] = {
 	"t8", "t9", "k0", "k1", "gp", "sp", "fp", "ra"
 };
 
+static int deb_seqn;
+
 
 static void
-print_registers(void)
+deb_print_registers(void)
 {
 	int r, c, i;
+
+	async_send_uint8(0xa0);
+	async_send_uint8(0);
+	async_send_uint8(31);
+	i = async_read_block(1);
+	if (i == 0)
+		printf("Error: got no sequence number, "
+		    "debugger disfunctional!\n");
+	if (rxbuf[0] != ((deb_seqn + 1) & 0xff))
+		printf("Error: bad sequence number: "
+		    "got %d, should have %d\n", rxbuf[0],
+		    (deb_seqn + 1) & 0xff);
+	deb_seqn = rxbuf[0];
+	i = async_read_block(32 * 4);
+	if (i != 32 * 4) {
+		printf("\nError: short read "
+		    "(%d instead of %d)\n", i, 32 * 4);
+		return;
+	}
 
 	for (r = 0; r < 8; r++) {
 		for (c = 0; c < 4; c++) {
@@ -2641,9 +2662,8 @@ print_registers(void)
 static void
 debug_cmd(void)
 {
-	int seqn;
 	char cmdbuf[256];
-	int i;
+	int i, c;
 
 	/* Enable debugger */
 	printf("*** Entering debugger mode ***\n");
@@ -2660,7 +2680,7 @@ debug_cmd(void)
 	if (i == 0)
 		printf("Error: got no sequence number, "
 		    "debugger disfunctional!\n");
-	seqn = rxbuf[0];
+	deb_seqn = rxbuf[0];
 
 	do {
 		printf("db> ");
@@ -2671,26 +2691,21 @@ debug_cmd(void)
 				break;
 		switch (cmdbuf[i]) {
 		case 'r':
-			async_send_uint8(0xa0);
-			async_send_uint8(0);
-			async_send_uint8(31);
-			i = async_read_block(1);
-			if (i == 0)
-				printf("Error: got no sequence number, "
-				    "debugger disfunctional!\n");
-			if (rxbuf[0] != ((seqn + 1) & 0xff))
-				printf("Error: bad sequence number: "
-				    "got %d, should have %d\n", rxbuf[0],
-				    (seqn + 1) & 0xff);
-			seqn = rxbuf[0];
-			i = async_read_block(32 * 4);
-			if (i != 32 * 4) {
-				printf("\nError: short read "
-				    "(%d instead of %d)\n", i, 32 * 4);
-				break;
-			}
-			print_registers();
+			deb_print_registers();
 			break;
+		case 'R':
+			do {
+				deb_print_registers();
+#ifdef WIN32
+				if (kbhit()) {
+					c = getch();
+#else
+				if (read(0, &c, 1) > 0) {
+#endif
+						break;
+				}
+				printf("\r\033[8A");
+			} while (1);
 		default:
 			break;
 		}
