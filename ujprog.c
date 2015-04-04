@@ -2620,13 +2620,23 @@ static int deb_seqn;
 
 
 static void
+deb_print_reg(off)
+{
+	int i;
+
+	for (i = 0; i < 4; i++)
+		printf("%02x", rxbuf[off * 4 + (3 - i)]);
+}
+
+
+static int
 deb_print_registers(void)
 {
 	int r, c, i;
 
 	async_send_uint8(0xa0);
 	async_send_uint8(0);
-	async_send_uint8(31);
+	async_send_uint8(47);
 	i = async_read_block(1);
 	if (i == 0)
 		printf("Error: got no sequence number, "
@@ -2636,26 +2646,50 @@ deb_print_registers(void)
 		    "got %d, should have %d\n", rxbuf[0],
 		    (deb_seqn + 1) & 0xff);
 	deb_seqn = rxbuf[0];
-	i = async_read_block(32 * 4);
-	if (i != 32 * 4) {
+	i = async_read_block(48 * 4);
+	if (i != 48 * 4) {
 		printf("\nError: short read "
-		    "(%d instead of %d)\n", i, 32 * 4);
-		return;
+		    "(%d instead of %d)\n", i, 48 * 4);
+		return (-1);
 	}
 
 	for (r = 0; r < 8; r++) {
 		for (c = 0; c < 4; c++) {
-			printf("%2d (%s): ", r + 8 * c,
+			printf(" %2d (%s): ", r + 8 * c,
 			    mips_reg_names[r + 8 * c]);
-			for (i = 0; i < 4; i++)
-				printf("%02x",
-				    rxbuf[(r + 8 * c) * 4 + (3 - i)]);
+			deb_print_reg(r + 8 * c);
 			if (c != 3)
-				printf("   ");
+				printf("  ");
 		}
 		printf("\n");
 	}
+	printf("\n");
 
+	printf(" PC: ");
+	deb_print_reg(37);
+	printf("    HI: ");
+	deb_print_reg(33);
+	printf("   LO: ");
+	deb_print_reg(34);
+	printf("     SR: ");
+	deb_print_reg(32);
+	printf("   Cause: ");
+	deb_print_reg(36);
+	printf("\n");
+
+	printf(" IR: ");
+	deb_print_reg(38);
+	printf(" Count: ");
+	deb_print_reg(40);
+	printf(" Exec: ");
+	deb_print_reg(41);
+	printf(" Branch: ");
+	deb_print_reg(42);
+	printf(" Mispred: ");
+	deb_print_reg(43);
+	printf("\n");
+
+	return (0);
 }
 
 
@@ -2695,7 +2729,7 @@ debug_cmd(void)
 			break;
 		case 'R':
 			do {
-				deb_print_registers();
+				i = deb_print_registers();
 #ifdef WIN32
 				if (kbhit()) {
 					c = getch();
@@ -2704,8 +2738,8 @@ debug_cmd(void)
 #endif
 						break;
 				}
-				printf("\r\033[8A");
-			} while (1);
+				printf("\r\033[11A");
+			} while (i == 0);
 		default:
 			break;
 		}
