@@ -2286,8 +2286,8 @@ async_read_block(int len)
 {
 	int res, got = 0, backoff = 0;
 
-	if (cable_hw == CABLE_HW_USB) {
-		do {
+	do {
+		if (cable_hw == CABLE_HW_USB) {
 #ifdef WIN32
 			DWORD ev_stat, avail;
 			FT_GetStatus(ftHandle, &avail, &ev_stat, &ev_stat);
@@ -2301,15 +2301,28 @@ async_read_block(int len)
 #else
 			res = ftdi_read_data(&fc, &rxbuf[got], len - got);
 #endif
-			if (res > 0) {
-				got += res;
-				backoff = 0;
-			} else {
-				backoff++;
-				ms_sleep(backoff * 4);
-			}
-		} while (got < len && backoff < 5);
-	}
+		} else {
+#ifdef WIN32
+			DWORD n;
+			n = len - got;
+			if (n > 32)
+				n = 32;
+			ReadFile(com_port, &rxbuf[got], n,
+			    (DWORD *) &res, NULL);
+#else
+			res = read(com_port, &rxbuf[got], len - got);
+			if (res == -1)
+				res = 0;
+#endif
+		}
+		if (res > 0) {
+			got += res;
+			backoff = 0;
+		} else {
+			backoff++;
+			ms_sleep(backoff * 4);
+		}
+	} while (got < len && backoff < 5);
 	return (got);
 }
 
@@ -2698,9 +2711,13 @@ debug_cmd(void)
 {
 	char cmdbuf[256];
 	int i, c;
+#ifdef WIN32
+	HANDLE cons_out = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_SCREEN_BUFFER_INFO screen_info;
+#endif
 
 	/* Enable debugger */
-	printf("*** Entering debugger mode ***\n");
+	printf("\n*** Entering debug mode ***\n");
 	async_send_uint8(0x9d);
 	async_send_uint8(0xed);
 
@@ -2729,7 +2746,8 @@ debug_cmd(void)
 			break;
 		case 'R':
 			do {
-				i = deb_print_registers();
+				if (deb_print_registers() != 0)
+					break;
 #ifdef WIN32
 				if (kbhit()) {
 					c = getch();
@@ -2738,15 +2756,24 @@ debug_cmd(void)
 #endif
 						break;
 				}
+#ifdef WIN32
+				GetConsoleScreenBufferInfo(cons_out,
+				    &screen_info);
+				screen_info.dwCursorPosition.X = 0;
+				screen_info.dwCursorPosition.Y -= 11;
+				SetConsoleCursorPosition(cons_out,
+				    screen_info.dwCursorPosition);
+#else
 				printf("\r\033[11A");
-			} while (i == 0);
+#endif
+			} while (1);
 		default:
 			break;
 		}
 	} while (cmdbuf[i] != '.');
 
 	/* Exit debugger */
-	printf("*** Exiting debugger mode ***\n");
+	printf("*** Exiting debug mode ***\n");
 	async_send_uint8(0x9d);
 	async_send_uint8(0xdd);
 	async_read_block(1);
