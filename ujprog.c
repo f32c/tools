@@ -2671,12 +2671,12 @@ deb_print_registers(void)
 
 	async_send_uint8(0xa0);
 	async_send_uint8(0);
-	async_send_uint8(47);
+	async_send_uint8(63);
 	deb_get_seqn();
-	i = async_read_block(48 * 4);
-	if (i != 48 * 4) {
+	i = async_read_block(64 * 4);
+	if (i != 64 * 4) {
 		printf("\nError: short read "
-		    "(%d instead of %d)\n", i, 48 * 4);
+		    "(%d instead of %d)\n", i, 64 * 4);
 		return (-1);
 	}
 
@@ -2692,35 +2692,54 @@ deb_print_registers(void)
 	}
 	printf("\n");
 
-	printf("    HI: ");
+	printf(" HI: ");
 	deb_print_reg(32);
-	printf("   LO: ");
+	printf(" LO: ");
 	deb_print_reg(33);
-	printf(" Status: ");
+	printf(" SR: ");
 	deb_print_reg(34);
-	printf(" Cause: ");
+	printf(" CS: ");
 	deb_print_reg(35);
 	printf(" EPC: ");
 	deb_print_reg(36);
-	printf("\n");
-
-	printf("    PC: ");
-	deb_print_reg(38);
-	printf("   IR: ");
-	deb_print_reg(39);
-	printf("                       ");
-	printf("  Ebase: ");
+	printf(" EB: ");
 	deb_print_reg(37);
 	printf("\n");
 
-	printf(" Count: ");
+	printf("\n");
+	printf(" IF A: ");
 	deb_print_reg(40);
-	printf(" Exec: ");
-	deb_print_reg(41);
-	printf(" Branch: ");
+	printf("  ID A: ");
 	deb_print_reg(42);
-	printf(" Mispredicted: ");
+	printf("  EX A: ");
+	deb_print_reg(44);
+	printf("  MA A: ");
+	deb_print_reg(46);
+	printf("  WB A: ");
+	deb_print_reg(48);
+	printf("\n");
+
+	printf(" IF I: ");
+	deb_print_reg(41);
+	printf("  ID I: ");
 	deb_print_reg(43);
+	printf("  EX I: ");
+	deb_print_reg(45);
+	printf("  MA I: ");
+	deb_print_reg(47);
+	printf("  WB I: ");
+	deb_print_reg(49);
+	printf("\n");
+
+	printf("\n");
+	printf(" Count: ");
+	deb_print_reg(38);
+	printf("     Exec: ");
+	deb_print_reg(52);
+	printf("     Branch: ");
+	deb_print_reg(53);
+	printf("     Mispred: ");
+	deb_print_reg(54);
 	printf("\n");
 
 	return (0);
@@ -2800,11 +2819,11 @@ debug_cmd(void)
 				GetConsoleScreenBufferInfo(cons_out,
 				    &screen_info);
 				screen_info.dwCursorPosition.X = 0;
-				screen_info.dwCursorPosition.Y -= 12;
+				screen_info.dwCursorPosition.Y -= 15;
 				SetConsoleCursorPosition(cons_out,
 				    screen_info.dwCursorPosition);
 #else
-				printf("\r\033[12A");
+				printf("\r\033[15A");
 #endif
 			} while (1);
 		default:
