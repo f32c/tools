@@ -2678,27 +2678,34 @@ deb_print_registers(void)
 	}
 	printf("\n");
 
-	printf(" PC: ");
-	deb_print_reg(37);
 	printf("    HI: ");
-	deb_print_reg(33);
-	printf("   LO: ");
-	deb_print_reg(34);
-	printf("     SR: ");
 	deb_print_reg(32);
-	printf("   Cause: ");
+	printf("   LO: ");
+	deb_print_reg(33);
+	printf(" Status: ");
+	deb_print_reg(34);
+	printf(" Cause: ");
+	deb_print_reg(35);
+	printf(" EPC: ");
 	deb_print_reg(36);
 	printf("\n");
 
-	printf(" IR: ");
+	printf("    PC: ");
 	deb_print_reg(38);
+	printf("   IR: ");
+	deb_print_reg(39);
+	printf("                       ");
+	printf("  Ebase: ");
+	deb_print_reg(37);
+	printf("\n");
+
 	printf(" Count: ");
 	deb_print_reg(40);
 	printf(" Exec: ");
 	deb_print_reg(41);
 	printf(" Branch: ");
 	deb_print_reg(42);
-	printf(" Mispred: ");
+	printf(" Mispredicted: ");
 	deb_print_reg(43);
 	printf("\n");
 
@@ -2760,11 +2767,11 @@ debug_cmd(void)
 				GetConsoleScreenBufferInfo(cons_out,
 				    &screen_info);
 				screen_info.dwCursorPosition.X = 0;
-				screen_info.dwCursorPosition.Y -= 11;
+				screen_info.dwCursorPosition.Y -= 12;
 				SetConsoleCursorPosition(cons_out,
 				    screen_info.dwCursorPosition);
 #else
-				printf("\r\033[11A");
+				printf("\r\033[12A");
 #endif
 			} while (1);
 		default:
