@@ -2397,7 +2397,7 @@ txfile(void)
 {
 	int tx_cnt, i, infile, res;
 	uint32_t rx_csum, local_csum, csum_i;
-	uint32_t base, len, bootaddr;
+	uint32_t base, bootaddr;
 	FILE *fd;
 	uint8_t hdrbuf[16];
 
@@ -2409,7 +2409,7 @@ txfile(void)
 		}
 		i = fread(hdrbuf, 1, 16, fd);
 		fseek(fd, 0, SEEK_END);
-		len = ftell(fd);
+		// len = ftell(fd);
 		fseek(fd, 0, SEEK_SET);
 		fclose(fd);
 		if (i != 16) {
