@@ -2643,6 +2643,28 @@ deb_print_reg(off)
 
 
 static int
+deb_get_seqn()
+{
+	int i;
+
+	i = async_read_block(1);
+	if (i == 0) {
+		printf("Error: got no sequence number, "
+		    "debugger disfunctional!\n");
+		return (1);
+	}
+	if (rxbuf[0] != ((deb_seqn + 1) & 0xff)) {
+		printf("Error: bad sequence number: "
+		    "got %d, should have %d\n", rxbuf[0],
+		    (deb_seqn + 1) & 0xff);
+		return (1);
+	}
+	deb_seqn = rxbuf[0];
+	return (0);
+}
+
+
+static int
 deb_print_registers(void)
 {
 	int r, c, i;
@@ -2650,15 +2672,7 @@ deb_print_registers(void)
 	async_send_uint8(0xa0);
 	async_send_uint8(0);
 	async_send_uint8(47);
-	i = async_read_block(1);
-	if (i == 0)
-		printf("Error: got no sequence number, "
-		    "debugger disfunctional!\n");
-	if (rxbuf[0] != ((deb_seqn + 1) & 0xff))
-		printf("Error: bad sequence number: "
-		    "got %d, should have %d\n", rxbuf[0],
-		    (deb_seqn + 1) & 0xff);
-	deb_seqn = rxbuf[0];
+	deb_get_seqn();
 	i = async_read_block(48 * 4);
 	if (i != 48 * 4) {
 		printf("\nError: short read "
@@ -2748,6 +2762,25 @@ debug_cmd(void)
 			if (cmdbuf[i] != ' ' && cmdbuf[i] != 9)
 				break;
 		switch (cmdbuf[i]) {
+		case 's':
+			c = atoi(&cmdbuf[i + 1]);
+			if (c < 1)
+				c = 1;
+			async_send_uint8(0xef);
+			async_send_uint32(0);
+			async_send_uint32(c);
+			deb_get_seqn();
+			printf("Single-stepping %d cycle(s)...\n", c);
+			/* XXX ugly hack, wait for cycles to pass... */
+			ms_sleep(c / 50000);
+			deb_print_registers();
+			break;
+		case 'c':
+			async_send_uint8(0xef);
+			async_send_uint32(1);
+			async_send_uint32(1);
+			deb_get_seqn();
+			break;
 		case 'r':
 			deb_print_registers();
 			break;
