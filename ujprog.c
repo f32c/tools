@@ -2265,7 +2265,7 @@ reload_xp2_flash(int debug)
 
 	/* Reset sequence */
 	c = buf;
-	c += sprintf(c, "RUNTEST IDLE 3 TCK;\n");
+	c += sprintf(c, "RUNTEST IDLE 30 TCK;\n");
 	*c++ = 0;
 	c += sprintf(c, "SIR 8 TDI (1E);\n");
 	*c++ = 0;
@@ -2425,8 +2425,7 @@ txfile(void)
 			    + (hdrbuf[5] << 8) + hdrbuf[4];
 		} else if (hdrbuf[2] == 0x10 && hdrbuf[3] == 0x3c &&
 		    hdrbuf[6] == 0x10 && hdrbuf[7] == 0x26 &&
-		    hdrbuf[10] == 0x11 && hdrbuf[11] == 0x3c &&
-		    hdrbuf[14] == 0x31 && hdrbuf[7] == 0x26) {
+		    hdrbuf[10] == 0x11 && hdrbuf[11] == 0x3c) {
 			/* MIPS, big-endian cookie found */
 			/* XXX fixme */
 			base = 0;
@@ -2472,7 +2471,7 @@ txfile(void)
 		/* Send a space mark to break into SIO loader prompt */
 		async_send_uint8(' ');
 
-		/* Wait for f32c ROM BIST to complete */
+		/* Wait for f32c ROM to catch up */
 		ms_sleep(100);
 	}
 
