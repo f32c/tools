@@ -2622,6 +2622,13 @@ genbrk(void)
 }
 
 
+static const char *riscv_reg_names[] = {
+	"zr", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
+	"s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5",
+	"a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7",
+	"s8", "s9", "sA", "sB", "t3", "t4", "t5", "t6"
+};
+
 static const char *mips_reg_names[] = {
 	"zr", "at", "v0", "v1", "a0", "a1", "a2", "a3",
 	"t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
@@ -2629,7 +2636,10 @@ static const char *mips_reg_names[] = {
 	"t8", "t9", "k0", "k1", "gp", "sp", "fp", "ra"
 };
 
+
 static int deb_seqn;
+static int deb_big_endian;
+static int deb_riscv;
 
 
 static void
@@ -2682,8 +2692,14 @@ deb_print_registers(void)
 
 	for (r = 0; r < 8; r++) {
 		for (c = 0; c < 4; c++) {
-			printf(" %2d (%s): ", r + 8 * c,
-			    mips_reg_names[r + 8 * c]);
+			if (r + 8 * c < 10)
+				printf(" ");
+			if (deb_riscv)
+				printf("x%d (%s): ", r + 8 * c,
+				    riscv_reg_names[r + 8 * c]);
+			else
+				printf(" x%d (%s): ", r + 8 * c,
+				    mips_reg_names[r + 8 * c]);
 			deb_print_reg(r + 8 * c);
 			if (c != 3)
 				printf("  ");
@@ -2764,14 +2780,40 @@ debug_cmd(void)
 	/* Flush read buffer */
 	async_read_block(BUFLEN_MAX);
 
-	/* Fetch initial sequence number */
-	async_send_uint8(0x9d);
-	async_send_uint8(0xed);
+	/* Fetch initial sequence number and config register */
+	async_send_uint8(0xa0);
+	async_send_uint8(63);
+	async_send_uint8(0);
 	i = async_read_block(1);
-	if (i == 0)
-		printf("Error: got no sequence number, "
-		    "debugger disfunctional!\n");
+	if (i == 0) {
+		printf("Error: got no sequence number\n");
+		printf("Debugger disfunctional, exiting.\n");
+		return;
+	}
 	deb_seqn = rxbuf[0];
+	i = async_read_block(4);
+	if (i != 4) {
+		printf("\nError: short read (%d instead of %d)\n", i, 4);
+		printf("Debugger disfunctional, exiting.\n");
+		return;
+	}
+	printf("Detected ");
+	if (rxbuf[1] & 0x80) {
+		printf("big-endian ");
+		deb_big_endian = 1;
+	} else {
+		printf("little-endian ");
+		deb_big_endian = 0;
+	}
+	if (rxbuf[1] & 0x40) {
+		printf("f32c/riscv");
+		deb_riscv = 1;
+	} else {
+		printf("f32c/mips");
+		deb_riscv = 0;
+	}
+	printf(" core, clk ticks at %f MHz.\n", 1.0 *
+	    (((rxbuf[3] & 0xf) << 8) + rxbuf[2]) / ((rxbuf[3] >> 5) + 1));
 
 	do {
 		printf("db> ");
