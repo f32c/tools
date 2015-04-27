@@ -2473,7 +2473,10 @@ txfile(void)
 		async_send_uint8(' ');
 
 		/* Wait for f32c ROM to catch up */
-		ms_sleep(100);
+		if (tx_binary)
+			ms_sleep(200);
+		else
+			ms_sleep(100);
 	}
 
 	/* Prune any stale data from rx buffer */
