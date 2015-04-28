@@ -148,7 +148,6 @@ static struct cable_hw_map {
 } cable_hw_map[] = {
 	{CABLE_HW_USB,		"FER ULXP2 board JTAG / UART"},
 	{CABLE_HW_USB,		"FER ULX2S board JTAG / UART"},
-	// {CABLE_HW_USB,		"FT232R USB UART"},
 	{CABLE_HW_UNKNOWN,	NULL},
 };
 
@@ -219,9 +218,9 @@ static int ppi;			/* Parallel port handle */
 
 /* ms_sleep() sleeps for at least the number of milliseconds given as arg */
 #ifdef WIN32
-#define	ms_sleep(delay_ms)	sleep(delay_ms);
+#define	ms_sleep(delay_ms)	sleep(delay_ms)
 #else
-#define	ms_sleep(delay_ms)	usleep((delay_ms) * 1000);
+#define	ms_sleep(delay_ms)	usleep((delay_ms) * 1000)
 #endif
 
 
@@ -544,8 +543,19 @@ setup_usb(void)
 		if (res == 0)
 			break;
 	}
-	if (res < 0)
-		return (res);
+	if (res < 0) {
+		res = ftdi_usb_open_desc_index(&fc, 0x0403, 0x6001,
+		    NULL, NULL, port_index);
+		if (res < 0) {
+#ifdef __APPLE__
+			system("/sbin/kextload"
+			    " -bundle-id com.FTDI.driver.FTDIUSBSerialDriver");
+			system("/sbin/kextload"
+			    "  -bundle-id com.apple.driver.AppleUSBFTDI");
+#endif
+			return (res);
+		}
+	}
 
 	res = ftdi_set_baudrate(&fc, USB_BAUDS);
 	if (res < 0) {
