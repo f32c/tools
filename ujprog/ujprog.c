@@ -2310,8 +2310,12 @@ reload_xp2_flash(int debug)
 static int
 async_read_block(int len)
 {
-	int res, got = 0, backoff = 0;
+	int res, got = 0, backoff = 0, backoff_lim = 5;
 
+#ifdef __FreeBSD__
+	if (cable_hw == CABLE_HW_COM)
+		backoff_lim = 10;
+#endif
 	do {
 		if (cable_hw == CABLE_HW_USB) {
 #ifdef WIN32
@@ -2348,7 +2352,7 @@ async_read_block(int len)
 			backoff++;
 			ms_sleep(backoff * 4);
 		}
-	} while (got < len && backoff < 5);
+	} while (got < len && backoff < backoff_lim);
 	return (got);
 }
 
