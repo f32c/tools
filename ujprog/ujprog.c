@@ -2450,20 +2450,31 @@ txfile(void)
 			/* MIPS, little-endian cookie found */
 			base = (hdrbuf[1] << 24) + (hdrbuf[0] << 16)
 			    + (hdrbuf[5] << 8) + hdrbuf[4];
+			if (!quiet)
+				printf("MIPS little-endian");
 		} else if (hdrbuf[2] == 0x10 && hdrbuf[3] == 0x3c &&
 		    hdrbuf[6] == 0x10 && hdrbuf[7] == 0x26 &&
 		    hdrbuf[10] == 0x11 && hdrbuf[11] == 0x3c) {
 			/* MIPS, big-endian cookie found */
 			/* XXX fixme */
-			base = 0;
 			fprintf(stderr, "%s: MIPS, big-endian UNSUPPORTED\n",
 			    txfname);
+			return;
+		} else if ((hdrbuf[1] & 0xf) == 1 && hdrbuf[0] == 0x97 &&
+		    hdrbuf[4] == 0x93 && hdrbuf[5] == 0x81) {
+			/* RISC-V, little-endian cookie found */
+			/* XXX hardcoded load address - fixme */
+			base = 0x400;
+			if (!quiet)
+				printf("RISC-V (PIC)");
 		} else {
 			fprintf(stderr,
 			    "invalid file type, missing header cookie\n");
 			return;
 		}
 		bootaddr = base;
+		if (!quiet)
+			printf(" binary, loading at 0x%08x\n", base);
 	}
 
 	infile = open(txfname,
