@@ -41,8 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 2.beta1";
-static const char *idstr = "$Id$";
+static const char *verstr = "ULX2S JTAG programmer v 2.beta2";
 
 
 #include <ctype.h>
@@ -2506,15 +2505,16 @@ txfile(void)
 		ftdi_usb_purge_buffers(&fc);
 		ms_sleep(50);
 #endif
-		/* Send a space mark to break into SIO loader prompt */
-		async_send_uint8(' ');
-
-		/* Wait for f32c ROM to catch up */
-		if (tx_binary)
-			ms_sleep(200);
-		else
-			ms_sleep(100);
 	}
+
+	/* Send a space mark to break into SIO loader prompt */
+	async_send_uint8(' ');
+
+	/* Wait for f32c ROM to catch up */
+	if (tx_binary)
+		ms_sleep(200);
+	else
+		ms_sleep(100);
 
 	/* Prune any stale data from rx buffer */
 	async_read_block(2048);
@@ -3458,7 +3458,7 @@ main(int argc, char *argv[])
 #endif
 
 	if (!quiet)
-		printf("%s %s\n", verstr, idstr);
+		printf("%s (built %s %s)\n", verstr, __DATE__, __TIME__);
 
 	if (argc == 0 && terminal == 0 && txfname == NULL && reload == 0) {
 		usage();
@@ -3468,12 +3468,6 @@ main(int argc, char *argv[])
 	if (com_name && terminal == 0 && txfname == NULL && reload == 0) {
 		fprintf(stderr, "error: "
 		    "option -P must be used with -r, -t or -a\n");
-		exit(EXIT_FAILURE);
-	}
-
-	if (com_name && tx_binary) {
-		fprintf(stderr, "error: "
-		    "options -P and -e are mutualy exclusive\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -3545,6 +3539,10 @@ main(int argc, char *argv[])
 			exit(EXIT_FAILURE);
 		}
 		res = fcntl(com_port, F_SETFL, O_NONBLOCK);
+#ifdef __FreeBSD__
+		/* XXX w/o this a BREAK won't be sent properly on FreeBSD ?!?*/
+		ms_sleep(300);
+#endif
 #endif /* !WIN32 */
 	default:
 		/* can't happen, shut up gcc warnings */
