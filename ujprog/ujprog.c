@@ -2312,7 +2312,7 @@ async_read_block(int len)
 {
 	int res, got = 0, backoff = 0, backoff_lim = 5;
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__linux__)
 	if (cable_hw == CABLE_HW_COM)
 		backoff_lim = 10;
 #endif
@@ -3543,7 +3543,7 @@ main(int argc, char *argv[])
 			exit(EXIT_FAILURE);
 		}
 		res = fcntl(com_port, F_SETFL, O_NONBLOCK);
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__linux__)
 		/* XXX w/o this a BREAK won't be sent properly on FreeBSD ?!?*/
 		ms_sleep(300);
 #endif
