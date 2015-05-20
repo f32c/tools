@@ -2718,14 +2718,42 @@ deb_get_seqn()
 }
 
 
+#define	BREAKPOINTS 2
+
+static int
+deb_print_breakpoints(void)
+{
+	int i;
+
+	async_send_uint8(0xa1);		/* DEB_CMD_BREAKPOINT_RD */
+	async_send_uint8(0);		/* start at breakpoint #0 */
+	async_send_uint8(BREAKPOINTS - 1);/* fetch values */
+	deb_get_seqn();
+	i = async_read_block(BREAKPOINTS * 4);
+	if (i != BREAKPOINTS * 4) {
+		printf("\nError: short read "
+		    "(%d instead of %d)\n", i, BREAKPOINTS * 4);
+		return (-1);
+	}
+
+	for (i = 0; i < BREAKPOINTS; i++) {
+		printf("%d: ", i);
+		deb_print_reg(i);
+		printf("\n");
+	}
+
+	return (0);
+}
+
+
 static int
 deb_print_registers(void)
 {
 	int r, c, i;
 
-	async_send_uint8(0xa0);
-	async_send_uint8(0);
-	async_send_uint8(63);
+	async_send_uint8(0xa0);		/* DEB_CMD_REG_RD */
+	async_send_uint8(0);		/* start at reg #0 */
+	async_send_uint8(63);		/* fetch 64 values */
 	deb_get_seqn();
 	i = async_read_block(64 * 4);
 	if (i != 64 * 4) {
@@ -2742,7 +2770,7 @@ deb_print_registers(void)
 				printf("x%d (%s): ", r + 8 * c,
 				    riscv_reg_names[r + 8 * c]);
 			else
-				printf(" x%d (%s): ", r + 8 * c,
+				printf("$%d (%s): ", r + 8 * c,
 				    mips_reg_names[r + 8 * c]);
 			deb_print_reg(r + 8 * c);
 			if (c != 3)
@@ -2810,7 +2838,7 @@ static void
 debug_cmd(void)
 {
 	char cmdbuf[256];
-	int i, c;
+	int i, j, c, r;
 #ifdef WIN32
 	HANDLE cons_out = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_SCREEN_BUFFER_INFO screen_info;
@@ -2825,9 +2853,9 @@ debug_cmd(void)
 	async_read_block(BUFLEN_MAX);
 
 	/* Fetch initial sequence number and config register */
-	async_send_uint8(0xa0);
-	async_send_uint8(63);
-	async_send_uint8(0);
+	async_send_uint8(0xa0);		/* DEB_CMD_REG_RD */
+	async_send_uint8(55);		/* start at reg #55 */
+	async_send_uint8(0);		/* fetch 1 value */
 	i = async_read_block(1);
 	if (i == 0) {
 		printf("Error: got no sequence number\n");
@@ -2867,29 +2895,54 @@ debug_cmd(void)
 			if (cmdbuf[i] != ' ' && cmdbuf[i] != 9)
 				break;
 		switch (cmdbuf[i]) {
-		case 's':
+		case 's': /* single step */
 			c = atoi(&cmdbuf[i + 1]);
 			if (c < 1)
 				c = 1;
-			async_send_uint8(0xef);
-			async_send_uint32(0);
-			async_send_uint32(c);
+			async_send_uint8(0xef);	/* DEB_CMD_CLK_STEP */
+			async_send_uint32(0);	/* disable clk when done */
+			async_send_uint32(c);	/* how many cycles */
 			deb_get_seqn();
 			printf("Single-stepping %d cycle(s)...\n", c);
 			/* XXX ugly hack, wait for cycles to pass... */
 			ms_sleep(c / 50000);
 			deb_print_registers();
 			break;
-		case 'c':
-			async_send_uint8(0xef);
-			async_send_uint32(1);
-			async_send_uint32(1);
+		case 'b': /* set / clear breakpoints */
+			i++;
+			while (cmdbuf[i] == ' ' || cmdbuf[i] == 8)
+				i++;
+			if (cmdbuf[i] == 0) {
+				deb_print_breakpoints();
+				break;
+			}
+			j = i;
+			while (isnumber(cmdbuf[j]))
+				j++;
+			r = atoi(&cmdbuf[i]);
+			i = j;
+			while (cmdbuf[i] == ' ' || cmdbuf[i] == 8 ||
+			    cmdbuf[i] == ',')
+				i++;
+			c = strtol(&cmdbuf[i], NULL, 16);
+			c &= ~3;	/* Word align */
+			if (cmdbuf[i] != 0)
+				c |= 1;	 /* Set breakpoint enable flag */
+			async_send_uint8(0xe1); /* DEB_CMD_BREAKPOINT_WR */
+			async_send_uint32(r);	/* dst reg */
+			async_send_uint32(c);	/* value */
 			deb_get_seqn();
 			break;
-		case 'r':
+		case 'c': /* continue */
+			async_send_uint8(0xef); /* DEB_CMD_CLK_STEP */
+			async_send_uint32(1);	/* enable clk */
+			async_send_uint32(0);	/* don't wait */
+			deb_get_seqn();
+			break;
+		case 'r': /* print registers */
 			deb_print_registers();
 			break;
-		case 'R':
+		case 'R': /* continuously print registers */
 			do {
 				if (deb_print_registers() != 0)
 					break;
