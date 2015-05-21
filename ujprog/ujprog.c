@@ -2426,7 +2426,7 @@ static void
 txfile(void)
 {
 	int tx_cnt, i, infile, res;
-	uint32_t rx_csum, local_csum, csum_i;
+	uint32_t rx_crc, local_crc, crc_i;
 	uint32_t base, bootaddr;
 	FILE *fd;
 	uint8_t hdrbuf[16];
@@ -2571,10 +2571,12 @@ txfile(void)
 			async_send_uint32(base);
 
 			async_send_uint8(0xa0);	/* CMD: Write block */
-			local_csum = 0;
-			for (csum_i = 0; csum_i < tx_cnt; csum_i++) {
-				txbuf[csum_i] = txbuf[csum_i + 8192];
-				local_csum += txbuf[csum_i];
+			local_crc = 0;
+			for (crc_i = 0; crc_i < tx_cnt; crc_i++) {
+				local_crc =
+				    (local_crc >> 31) | (local_crc << 1);
+				txbuf[crc_i] = txbuf[crc_i + 8192];
+				local_crc |= txbuf[crc_i];
 			}
 			if (async_send_block(tx_cnt)) {
 				fprintf(stderr, "Block sending failed!\n");
@@ -2582,7 +2584,7 @@ txfile(void)
 				break;
 			}
 
-			async_send_uint8(0x81);	/* CMD: read csum */
+			async_send_uint8(0x81);	/* CMD: read crc */
 			res = async_read_block(4);
 			if (res != 4) {
 				fprintf(stderr, "Checksum not received: "
@@ -2590,14 +2592,14 @@ txfile(void)
 				tx_cnt = -1;
 				break;
 			}
-			rx_csum = rxbuf[0] << 24;
-			rx_csum += rxbuf[1] << 16;
-			rx_csum += rxbuf[2] << 8;
-			rx_csum += rxbuf[3];
-			if (rx_csum != local_csum) {
-				fprintf(stderr, "Checksum error: "
+			rx_crc = rxbuf[0] << 24;
+			rx_crc += rxbuf[1] << 16;
+			rx_crc += rxbuf[2] << 8;
+			rx_crc += rxbuf[3];
+			if (rx_crc != local_crc) {
+				fprintf(stderr, "CRC error: "
 				    "got %08x, should be %08x\n",
-				    rx_csum, local_csum);
+				    rx_crc, local_crc);
 				tx_cnt = -1;
 				break;
 			}
