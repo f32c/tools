@@ -2576,7 +2576,7 @@ txfile(void)
 				local_crc =
 				    (local_crc >> 31) | (local_crc << 1);
 				txbuf[crc_i] = txbuf[crc_i + 8192];
-				local_crc |= txbuf[crc_i];
+				local_crc += txbuf[crc_i];
 			}
 			if (async_send_block(tx_cnt)) {
 				fprintf(stderr, "Block sending failed!\n");
