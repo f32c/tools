@@ -2725,7 +2725,7 @@ deb_get_seqn()
 static int
 deb_print_breakpoints(void)
 {
-	int i;
+	int i, enabled, trapped;
 
 	async_send_uint8(0xa1);		/* DEB_CMD_BREAKPOINT_RD */
 	async_send_uint8(0);		/* start at breakpoint #0 */
@@ -2739,9 +2739,17 @@ deb_print_breakpoints(void)
 	}
 
 	for (i = 0; i < BREAKPOINTS; i++) {
-		printf("%d: ", i);
-		deb_print_reg(i);
-		printf("\n");
+		enabled = rxbuf[i * 4] & 1;
+		trapped = rxbuf[i * 4] & 2;
+		rxbuf[i * 4] &= ~3;
+		printf("breakpoint #%d: ", i);
+		if (enabled) {
+			deb_print_reg(i);
+			if (trapped)
+				printf(" (trapped)");
+			printf("\n");
+		} else
+			printf("disabled\n");
 	}
 
 	return (0);
@@ -2833,6 +2841,26 @@ deb_print_registers(void)
 	printf("\n");
 
 	return (0);
+}
+
+
+static void
+debug_help(void)
+{
+
+	printf(
+	    "  r	show registers\n"
+	    "  R	show registers until a key is pressed\n"
+	    "  s	execute a single clock cycle\n"
+	    "  s N	execute at most N clock cycles\n"
+	    "  c	continue execution\n"
+	    "  b	show breakpoints\n"
+	    "  b N	deactivate breakpoint N\n"
+	    "  b N,A	set breakpoint N at address A\n"
+	    "  .	exit from debugger\n"
+	    "  h	get this summary\n"
+	    "  ?	get this summary\n"
+	);
 }
 
 
@@ -2967,7 +2995,19 @@ debug_cmd(void)
 				printf("\r\033[15A");
 #endif
 			} while (1);
+			break;
+		case 'q':
+			cmdbuf[i] = '.';
+			break;
+		case '.':
+		case 0:
+			break;
+		case 'h':
+		case '?':
+			debug_help();
+			break;
 		default:
+			printf("Unknown command\n");
 			break;
 		}
 	} while (cmdbuf[i] != '.');
