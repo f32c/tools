@@ -2958,7 +2958,7 @@ debug_cmd(void)
 			while (cmdbuf[i] == ' ' || cmdbuf[i] == 8 ||
 			    cmdbuf[i] == ',')
 				i++;
-			c = strtol(&cmdbuf[i], NULL, 16);
+			c = strtoul(&cmdbuf[i], NULL, 16);
 			c &= ~3;	/* Word align */
 			if (cmdbuf[i] != 0)
 				c |= 1;	 /* Set breakpoint enable flag */
