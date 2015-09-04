@@ -1,11 +1,12 @@
 
 SRCS = ujprog.c
-CFLAGS += -Wall -D__linux__
-#FTLIB = /usr/lib/`uname -m`-linux-gnu/libftdi.a
-FTLIB = -lftdi
+CFLAGS += -Wall -D__linux__  -static
+FTLIB = /usr/lib/`uname -m`-linux-gnu/libftdi.a
+#FTLIB = -lftdi
+USBLIB = /usr/lib/`uname -m`-linux-gnu/libusb.a
 
 ujprog:	${SRCS}
-	${CC} ${CFLAGS} -lusb ${SRCS} ${FTLIB} -o ujprog
+	${CC} ${CFLAGS} ${SRCS} ${FTLIB} ${USBLIB} -o ujprog
 
 flash:	ft232r_flash.c
 	${CC} ${CFLAGS} -lusb ft232r_flash.c ${FTLIB} -o ft232r_flash
@@ -14,7 +15,7 @@ install: ujprog
 	install -m 4755 ujprog /usr/local/bin
 
 clean:
-	rm -f ujprog ujprog.o
+	rm -f ujprog ujprog.o *~
 
 depend:
 	mkdep ${INCLUDES} ${SRCS}
