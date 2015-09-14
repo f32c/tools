@@ -2531,7 +2531,7 @@ txfile(void)
 		/* Start of binary transfer marker */
 		async_send_uint8(255);
 
-		if (bootaddr >= 0x80000000) {
+		if (cable_hw == CABLE_HW_USB && bootaddr >= 0x80000000) {
 			async_send_uint8(0x80);	/* CMD: set base */
 			async_send_uint32(3000000);
 			async_send_uint8(0xb0);	/* CMD: set baudrate */
@@ -2626,7 +2626,7 @@ txfile(void)
 	if (tx_cnt < 0)
 		fprintf(stderr, "TX error at %08x\n", base);
 	else if (tx_binary) {
-		if (bootaddr >= 0x80000000) {
+		if (cable_hw == CABLE_HW_USB && bootaddr >= 0x80000000) {
 			async_send_uint8(0x80);	/* CMD: set base */
 			async_send_uint32(bauds);
 			async_send_uint8(0xb0);	/* CMD: set baudrate */
