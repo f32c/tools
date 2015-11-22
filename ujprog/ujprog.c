@@ -218,7 +218,7 @@ static int txfu_ms;		/* txt file upload character delay (ms) */
 static int tx_binary;		/* send in raw (0) or binary (1) format */
 static const char *txfname;	/* file to send */
 static const char *com_name;	/* COM / TTY port name for -a or -t */
-
+static int serial_debug = 0;
 
 #ifdef WIN32
 static FT_HANDLE ftHandle;	/* USB port handle */
@@ -2315,7 +2315,7 @@ static int
 async_read_block(int len)
 {
 	int res, got = 0, backoff = 0, backoff_lim = 5;
-
+	int i;
 #if defined(__FreeBSD__) || defined(__linux__)
 	if (cable_hw == CABLE_HW_COM)
 		backoff_lim = 10;
@@ -2357,6 +2357,13 @@ async_read_block(int len)
 			ms_sleep(backoff * 4);
 		}
 	} while (got < len && backoff < backoff_lim);
+        if(serial_debug)
+        {
+		printf("<");
+		for(i = 0; i < got; i++)
+			printf(" %02x", rxbuf[i]);
+		printf("\n");
+	}
 	return (got);
 }
 
@@ -2365,6 +2372,7 @@ static int
 async_send_block(int len)
 {
 	int sent;
+	int i;
 
 	if (cable_hw == CABLE_HW_USB) {
 #ifdef WIN32
@@ -2381,7 +2389,15 @@ async_send_block(int len)
 		fcntl(com_port, F_SETFL, O_NONBLOCK);
 #endif
 	}
-
+        if(serial_debug)
+        {
+		printf(">");
+		for(i = 0; i < sent && i < 20; i++)
+			printf(" %02x", txbuf[i]);
+		if(sent >= 20)
+			printf("...");
+		printf("\n");
+	}
 	if (sent == len)
 		return (0);
 	else
@@ -2430,6 +2446,7 @@ static void
 txfile(void)
 {
 	int tx_cnt, i, infile, res;
+	int crc_retry;
 	uint32_t rx_crc, local_crc, crc_i;
 	uint32_t base, bootaddr;
 	FILE *fd;
@@ -2547,7 +2564,6 @@ txfile(void)
 		i = 1;
 	if (tx_binary)
 		i = 8192;
-
 	do {
 		if (!quiet) {
 			printf("%c ", statc[blinker_phase]);
@@ -2587,13 +2603,14 @@ txfile(void)
 				tx_cnt = -1;
 				break;
 			}
-
+			res = 0;
 			async_send_uint8(0x81);	/* CMD: read crc */
-			res = async_read_block(4);
-			if (res != 4) {
+			for(crc_retry = 0; crc_retry < 10 && res == 0; ms_sleep(10), crc_retry++)
+				res = async_read_block(4);
+			if(res != 4)
+			{
 				fprintf(stderr, "Checksum not received: "
 				    "got %d bytes, should be 4\n", res);
-				tx_cnt = -1;
 				break;
 			}
 			rx_crc = rxbuf[0] << 24;
@@ -2604,9 +2621,10 @@ txfile(void)
 				fprintf(stderr, "CRC error: "
 				    "got %08x, should be %08x\n",
 				    rx_crc, local_crc);
-				tx_cnt = -1;
 				break;
 			}
+		    if(tx_cnt == -1)
+		      break;
 		} else {
 			memcpy(txbuf, &txbuf[8192], tx_cnt);
 			if (async_send_block(tx_cnt)) {
