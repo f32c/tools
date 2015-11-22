@@ -218,7 +218,7 @@ static int txfu_ms;		/* txt file upload character delay (ms) */
 static int tx_binary;		/* send in raw (0) or binary (1) format */
 static const char *txfname;	/* file to send */
 static const char *com_name;	/* COM / TTY port name for -a or -t */
-static int serial_debug = 0;
+static int global_debug = 0;
 
 #ifdef WIN32
 static FT_HANDLE ftHandle;	/* USB port handle */
@@ -2174,6 +2174,7 @@ usage(void)
 	printf("  -e FILE	Send and execute a f32c (MIPS/RISCV) binary "
 	    "FILE\n");
 	printf("  -a FILE	Send a raw FILE\n");
+	printf("  -d 		debug (verbose)\n");
 	printf("  -D DELAY	Delay transmission of each byte by"
 	    " DELAY ms\n");
 	printf("  -q 		Suppress messages\n");
@@ -2357,7 +2358,7 @@ async_read_block(int len)
 			ms_sleep(backoff * 4);
 		}
 	} while (got < len && backoff < backoff_lim);
-        if(serial_debug)
+        if(global_debug)
         {
 		printf("<");
 		for(i = 0; i < got; i++)
@@ -2389,7 +2390,7 @@ async_send_block(int len)
 		fcntl(com_port, F_SETFL, O_NONBLOCK);
 #endif
 	}
-        if(serial_debug)
+        if(global_debug)
         {
 		printf(">");
 		for(i = 0; i < sent && i < 20; i++)
@@ -2447,6 +2448,7 @@ txfile(void)
 {
 	int tx_cnt, i, infile, res;
 	int crc_retry;
+	int tx_retry, tx_success;
 	uint32_t rx_crc, local_crc, crc_i;
 	uint32_t base, bootaddr;
 	FILE *fd;
@@ -2583,6 +2585,9 @@ txfile(void)
 			break;
 
 		if (tx_binary) {
+		   tx_success = 0;
+		   for(tx_retry = 4; tx_retry > 0 && tx_success == 0; tx_retry--)
+		   {
 			async_send_uint8(0x80);	/* CMD: set base */
 			async_send_uint32(tx_cnt);
 			async_send_uint8(0x90);	/* CMD: len = base */
@@ -2601,17 +2606,21 @@ txfile(void)
 			if (async_send_block(tx_cnt)) {
 				fprintf(stderr, "Block sending failed!\n");
 				tx_cnt = -1;
-				break;
+				continue;
 			}
+			async_send_uint8(0x81); // read checksum
 			res = 0;
-			async_send_uint8(0x81);	/* CMD: read crc */
-			for(crc_retry = 0; crc_retry < 10 && res == 0; ms_sleep(10), crc_retry++)
+			for(crc_retry = 4; crc_retry > 0 && res != 4; ms_sleep(10), crc_retry--)
+			{
 				res = async_read_block(4);
+				if(crc_retry == 2 && res != 4)
+					async_send_uint8(0x81); // try again to read checksum
+			}
 			if(res != 4)
 			{
 				fprintf(stderr, "Checksum not received: "
 				    "got %d bytes, should be 4\n", res);
-				break;
+				continue;
 			}
 			rx_crc = rxbuf[0] << 24;
 			rx_crc += rxbuf[1] << 16;
@@ -2621,10 +2630,16 @@ txfile(void)
 				fprintf(stderr, "CRC error: "
 				    "got %08x, should be %08x\n",
 				    rx_crc, local_crc);
-				break;
+				continue;
 			}
-		    if(tx_cnt == -1)
-		      break;
+			else
+				tx_success = 1; // checksum ok
+		    }
+		    if(tx_success == 0)
+		    {
+			tx_cnt = -1; // give up, no more retries retries
+			break;
+		    }
 		} else {
 			memcpy(txbuf, &txbuf[8192], tx_cnt);
 			if (async_send_block(tx_cnt)) {
@@ -2632,16 +2647,19 @@ txfile(void)
 				tx_cnt = -1;
 				break;
 			}
+			tx_success = 1;
 		}
-		base += tx_cnt;
+		if(tx_success)
+			base += tx_cnt;
 	} while (tx_cnt > 0);
+
 
 	if (tx_cnt >= 0 && !quiet)
 		printf("done.\n");
 	close(infile);
 	fflush(stdout);
 
-	if (tx_cnt < 0)
+	if (tx_success == 0)
 		fprintf(stderr, "TX error at %08x\n", base);
 	else if (tx_binary) {
 		if (cable_hw == CABLE_HW_USB && bootaddr >= 0x80000000) {
@@ -3518,6 +3536,7 @@ main(int argc, char *argv[])
 #endif
 		case 'd':
 			debug = 1;
+			global_debug = 1;
 			break;
 		case 'D':
 			txfu_ms = atoi(optarg);
