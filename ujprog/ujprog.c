@@ -3669,6 +3669,7 @@ main(int argc, char *argv[])
 		tty.c_cflag |= CLOCAL;
 		tty.c_cflag &= ~CRTSCTS;
 		tty.c_iflag &= ~(ISTRIP|ICRNL);
+		tty.c_iflag &= ~(IXON|IXOFF);
 		tty.c_oflag &= ~OPOST;
 		tty.c_lflag &= ~(ICANON|ISIG|IEXTEN|ECHO);
 		tty.c_cc[VMIN] = 1;
