@@ -2619,7 +2619,7 @@ txfile(void)
 			if(res != 4)
 			{
 				fprintf(stderr, "Checksum not received: "
-				    "got %d bytes, should be 4\n", res);
+				    "got %d bytes, should be 4 (0x%08X)\n", res, local_crc);
 				continue;
 			}
 			rx_crc = rxbuf[0] << 24;
@@ -2628,7 +2628,7 @@ txfile(void)
 			rx_crc += rxbuf[3];
 			if (rx_crc != local_crc) {
 				fprintf(stderr, "CRC error: "
-				    "got %08x, should be %08x\n",
+				    "got 0x%08x, should be 0x%08x\n",
 				    rx_crc, local_crc);
 				continue;
 			}
