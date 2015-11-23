@@ -2611,7 +2611,8 @@ txfile(void)
 			// XXX BEGIN FIXME (in f32c bootloader?)
 			//async_send_uint8(0x90); // len=base here this is NOP command
 			//async_read_block(1); // dummy read, introduces a wait
-			ms_sleep(100); // wait? why?
+			if(txfu_ms > 0)
+				ms_sleep(txfu_ms);
 			// XXX END FIXME
 			async_send_uint8(0x81); // read checksum
 			res = 0;
