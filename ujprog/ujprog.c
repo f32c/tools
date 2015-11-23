@@ -2360,10 +2360,10 @@ async_read_block(int len)
 	} while (got < len && backoff < backoff_lim);
         if(global_debug)
         {
-		printf("<");
+		fprintf(stderr, "<");
 		for(i = 0; i < got; i++)
-			printf(" %02x", rxbuf[i]);
-		printf("\n");
+			fprintf(stderr, " %02x", rxbuf[i]);
+		fprintf(stderr, "\n");
 	}
 	return (got);
 }
@@ -2392,12 +2392,12 @@ async_send_block(int len)
 	}
         if(global_debug)
         {
-		printf(">");
+		fprintf(stderr, ">");
 		for(i = 0; i < sent && i < 20; i++)
-			printf(" %02x", txbuf[i]);
+			fprintf(stderr, " %02x", txbuf[i]);
 		if(sent >= 20)
-			printf("...");
-		printf("\n");
+			fprintf(stderr, "...");
+		fprintf(stderr, "\n");
 	}
 	if (sent == len)
 		return (0);
