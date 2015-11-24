@@ -2387,6 +2387,7 @@ async_send_block(int len)
 #else
 		fcntl(com_port, F_SETFL, 0);
 		sent = write(com_port, txbuf, len);
+		tcdrain(com_port); // flush data to hardware
 		fcntl(com_port, F_SETFL, O_NONBLOCK);
 #endif
 	}
