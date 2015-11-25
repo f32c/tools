@@ -2587,7 +2587,7 @@ txfile(void)
 
 		if (tx_binary) {
 		   tx_success = 0;
-		   for(tx_retry = 4; tx_retry > 0 && tx_success == 0; tx_retry--)
+		   for(tx_retry = 0; tx_retry < 4 && tx_success == 0; tx_retry++)
 		   {
 			async_send_uint8(0x80);	/* CMD: set base */
 			async_send_uint32(tx_cnt);
@@ -2604,6 +2604,14 @@ txfile(void)
 				txbuf[crc_i] = txbuf[crc_i + 8192];
 				local_crc += txbuf[crc_i];
 			}
+			#if 0
+			if(1) // intentionally damage tx packet to test CRC
+			{
+				// srandom(time(NULL)); // randomize seed, each run will be different
+				if( (rand() % 256) > 100 ) // error probability 100/256
+					txbuf[rand() % tx_cnt] = rand() % 0xFF; // error byte at random place
+			}
+			#endif
 			if (async_send_block(tx_cnt)) {
 				fprintf(stderr, "Block sending failed!\n");
 				tx_cnt = -1;
@@ -2636,7 +2644,10 @@ txfile(void)
 				continue;
 			}
 			else
+			{
 				tx_success = 1; // checksum ok
+				tx_retry = 0; // reset number of retries
+			}
 		    }
 		    if(tx_success == 0)
 		    {
