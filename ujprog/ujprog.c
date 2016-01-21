@@ -214,6 +214,7 @@ static int port_index;
 static int terminal;		/* terminal emulation mode */
 static int reload;		/* reload FPGA from Flash? */
 static int quiet;		/* suppress standard messages */
+char *svf_name;			/* SVF output name */
 static int txfu_ms;		/* txt file upload character delay (ms) */
 static int tx_binary;		/* send in raw (0) or binary (1) format */
 static const char *txfname;	/* file to send */
@@ -1963,8 +1964,28 @@ exec_jedec_file(char *path, int target, int debug)
 		if (*outcp == 0)
 			j++;
 
-	res = exec_svf_mem(outbuf, j, debug);
+	if (svf_name) {
+		int of;
 
+		if (strncmp(svf_name, "-", 1) == 0)
+			of = 0;
+		else
+			of = open(svf_name, O_RDWR | O_CREAT | O_TRUNC, 0644);
+		if (of < 0) {
+			res = errno;
+			goto done;
+		}
+		res = 0;
+		for (i = 0, outcp = outbuf; i < j; i++) {
+			write(of, outcp, strlen(outcp));
+			outcp += (strlen(outcp) + 1);
+		}
+		if (of)
+			close(of);
+	} else
+		res = exec_svf_mem(outbuf, j, debug);
+
+done:
 	free(outbuf);
 	free(inbuf);
 	return (res);
@@ -2165,6 +2186,7 @@ usage(void)
 #endif
 	printf("  -j TARGET	Select bitstream TARGET as SRAM (default)"
 	    " or FLASH\n");
+	printf("  -s FILE	Convert bitstream to SVF FILE and exit\n");
 	printf("  -r		Reload FPGA configuration from"
 	    " internal Flash\n");
 	printf("  -t		Enter terminal emulation mode after"
@@ -3521,9 +3543,9 @@ main(int argc, char *argv[])
 #endif
 
 #ifdef WIN32
-#define OPTS	"qtdj:b:p:P:a:e:D:rs"
+#define OPTS	"qtdj:b:p:P:a:e:D:rs:w"
 #else
-#define OPTS	"qtdj:b:p:P:a:e:D:rc:"
+#define OPTS	"qtdj:b:p:P:a:e:D:rs:c:"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
@@ -3584,8 +3606,11 @@ main(int argc, char *argv[])
 		case 'r':
 			reload = 1;
 			break;
-#ifdef WIN32
 		case 's':
+			svf_name = optarg;
+			break;
+#ifdef WIN32
+		case 'w':
 			quick_mode = 0;
 			break;
 #endif
@@ -3613,6 +3638,15 @@ main(int argc, char *argv[])
 
 	if (!quiet)
 		printf("%s (built %s %s)\n", verstr, __DATE__, __TIME__);
+
+	if (svf_name) {
+		if (terminal || reload || txfname || com_name || argc == 0) {
+			usage();
+			exit(EXIT_FAILURE);
+		}
+		res = exec_jedec_file(argv[0], jed_target, debug);
+		return(res);
+	}
 
 	if (argc == 0 && terminal == 0 && txfname == NULL && reload == 0) {
 		usage();
