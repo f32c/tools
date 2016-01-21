@@ -3748,9 +3748,10 @@ main(int argc, char *argv[])
 #else
 		close(com_port);
 #endif
-	} else if (cable_hw == CABLE_HW_USB)
+	} else if (cable_hw == CABLE_HW_USB) {
 		ms_sleep(1); // small delay for f32c to start
 		shutdown_usb();
+	}
 #ifdef USE_PPI
 	else
 		shutdown_ppi();
