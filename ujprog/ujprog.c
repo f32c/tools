@@ -3503,7 +3503,7 @@ term_emul(void)
 		}
 		if (tx_cnt == 0 && rx_cnt == 0) {
 			ms_sleep(sleep_t);
-			if (sleep_t < 20)
+			if (sleep_t < 5)
 				sleep_t++;
 		} else
 			sleep_t = 0;
