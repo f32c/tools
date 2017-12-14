@@ -2063,6 +2063,7 @@ exec_svf_file(char *path, int debug)
 		if (fgets(linebuf, flen, fd) == NULL)
 			break;
 		lines_tot++;
+		flen -= strlen(linebuf) + 1;
 	}
 	fclose(fd);
 
