@@ -162,12 +162,15 @@ static enum cable_hw {
 
 
 static struct cable_hw_map {
-	int cable_hw;
-	char *cable_path;
+	int	cable_hw;
+	int	usb_vid;
+	int	usb_pid;
+	char	*cable_path;
 } cable_hw_map[] = {
-	{CABLE_HW_USB,		"FER ULXP2 board JTAG / UART"},
-	{CABLE_HW_USB,		"FER ULX2S board JTAG / UART"},
-	{CABLE_HW_UNKNOWN,	NULL},
+	{CABLE_HW_USB, 0x0403, 0x6001, "FER ULXP2 board JTAG / UART"},
+	{CABLE_HW_USB, 0x0403, 0x6001, "FER ULX2S board JTAG / UART"},
+	{CABLE_HW_USB, 0x0403, 0x6015, "ULX3S FPGA v1.7"},
+	{CABLE_HW_UNKNOWN, 0, 0,	NULL},
 };
 
 
@@ -558,7 +561,7 @@ setup_usb(void)
 	}
 
 	for (hmp = cable_hw_map; hmp->cable_hw != CABLE_HW_UNKNOWN; hmp++) {
-		res = ftdi_usb_open_desc_index(&fc, 0x0403, 0x6001,
+		res = ftdi_usb_open_desc_index(&fc, hmp->usb_vid, hmp->usb_pid,
 		    hmp->cable_path, NULL, port_index);
 		if (res == 0)
 			break;
