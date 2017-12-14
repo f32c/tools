@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 2.0.1";
+static const char *verstr = "ULX2S JTAG programmer v 2.99.x1";
 
 
 #include <ctype.h>
@@ -166,21 +166,56 @@ static struct cable_hw_map {
 	int	usb_vid;
 	int	usb_pid;
 	char	*cable_path;
+	char	tck, tms, tdi, tdo;
+	char	cbus_led;
 } cable_hw_map[] = {
-	{CABLE_HW_USB, 0x0403, 0x6001, "FER ULXP2 board JTAG / UART"},
-	{CABLE_HW_USB, 0x0403, 0x6001, "FER ULX2S board JTAG / UART"},
-	{CABLE_HW_USB, 0x0403, 0x6015, "ULX3S FPGA v1.7"},
-	{CABLE_HW_UNKNOWN, 0, 0,	NULL},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6001,
+		.cable_path =	"FER ULXP2 board JTAG / UART",
+		.tck =		0x20,
+		.tms =		0x80,
+		.tdi =		0x08,
+		.tdo =		0x40,
+		.cbus_led =	0x02
+	},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6001,
+		.cable_path =	"FER ULX2S board JTAG / UART",
+		.tck =		0x20,
+		.tms =		0x80,
+		.tdi =		0x08,
+		.tdo =		0x40,
+		.cbus_led =	0x02
+	},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6015,
+		.cable_path =	"ULX3S FPGA v1.7",
+		.tck =		0x20,
+		.tms =		0x40,
+		.tdi =		0x80,
+		.tdo =		0x08,
+		.cbus_led =	0x02
+	},
+	{
+		.cable_hw =	CABLE_HW_UNKNOWN,
+		.cable_path =	"UNKNOWN"
+	}
 };
 
 
 #define	USB_BAUDS		1000000
 
-#define	USB_TCK			0x20
-#define	USB_TMS			0x80
-#define	USB_TDI			0x08
-#define	USB_TDO			0x40
-#define	USB_CBUS_LED		0x02
+#define	USB_TCK			(hmp->tck)
+#define	USB_TMS			(hmp->tms)
+#define	USB_TDI			(hmp->tdi)
+#define	USB_TDO			(hmp->tdo)
+#define	USB_CBUS_LED		(hmp->cbus_led)
 
 #define	PPI_TCK			0x02
 #define	PPI_TMS			0x04
@@ -224,6 +259,7 @@ static const char *txfname;	/* file to send */
 static const char *com_name;	/* COM / TTY port name for -a or -t */
 static int global_debug = 0;
 
+static struct cable_hw_map *hmp; /* Selected cable hardware map */
 #ifdef WIN32
 static FT_HANDLE ftHandle;	/* USB port handle */
 static HANDLE com_port;		/* COM port file */
@@ -544,7 +580,6 @@ static int
 setup_usb(void)
 {
 	int res;
-	struct cable_hw_map *hmp;
 
 #ifdef __APPLE__
 	setuid(0);
@@ -3749,7 +3784,7 @@ main(int argc, char *argv[])
 	if (!quiet && cable_hw != CABLE_HW_COM) {
 #ifndef WIN32
 		if (cable_hw == CABLE_HW_USB)
-			printf("Using USB JTAG cable.\n");
+			printf("Using USB JTAG cable: %s\n", hmp->cable_path);
 		else
 #ifdef USE_PPI
 			printf("Using parallel port JTAG cable.\n");
