@@ -64,6 +64,7 @@ static const char *verstr = "ULX2S JTAG programmer v 2.99.x1";
 #ifdef WIN32
 #include <windows.h>
 #include <ftd2xx.h>
+#include <conio.h>
 #else
 #include <sys/ioctl.h>
 #include <sys/time.h>
@@ -76,7 +77,6 @@ static const char *verstr = "ULX2S JTAG programmer v 2.99.x1";
 #endif
 
 #ifdef WIN32
-#define	EOPNOTSUPP		-1000
 #define	BITMODE_OFF		0x0
 #define	BITMODE_BITBANG		0x1
 #define	BITMODE_SYNCBB		0x4
@@ -276,11 +276,7 @@ static int ppi;			/* Parallel port handle */
 
 
 /* ms_sleep() sleeps for at least the number of milliseconds given as arg */
-#ifdef WIN32
-#define	ms_sleep(delay_ms)	sleep(delay_ms)
-#else
 #define	ms_sleep(delay_ms)	usleep((delay_ms) * 1000)
-#endif
 
 
 static long
@@ -411,27 +407,6 @@ set_port_mode(int mode)
 
 
 #ifdef WIN32
-static char *
-strtok_r(char *s1, const char *s2, char **lasts)
-{
-	char *ret;
-
-	if (s1 == NULL)
-		s1 = *lasts;
-	while(*s1 && strchr(s2, *s1))
-		++s1;
-	if(*s1 == 0)
-		return NULL;
-	ret = s1;
-	while(*s1 && !strchr(s2, *s1))
-		++s1;
-	if(*s1)
-		*s1++ = 0;
-	*lasts = s1;
-	return (ret);
-}
-
-
 static int
 setup_usb(void)
 {
@@ -453,13 +428,13 @@ setup_usb(void)
 		fprintf(stderr, "FT_GetDeviceInfo() failed\n");
 		return (res);
 	}
-	if (deviceID != 0x04036001) {
-		fprintf(stderr,
-		    "FT_GetDeviceInfo() found incompatible device\n");
-		return (-1);
+	for (hmp = cable_hw_map; hmp->cable_hw != CABLE_HW_UNKNOWN; hmp++) {
+		if ((deviceID == hmp->usb_vid << 16 | hmp->usb_pid)
+		    && strcmp(Description, hmp->cable_path) == 0)
+			break;
 	}
 	if (!quiet)
-		printf("Using USB cable: %s\n", Description);
+		printf("Using USB cable: %s\n", hmp->cable_path);
 
 	res = FT_SetBaudRate(ftHandle, USB_BAUDS);
 	if (res != FT_OK) {
@@ -2804,7 +2779,7 @@ static int deb_riscv;
 
 
 static void
-deb_print_reg(off)
+deb_print_reg(int off)
 {
 	int i;
 
@@ -3785,7 +3760,7 @@ main(int argc, char *argv[])
 	if (!quiet && cable_hw != CABLE_HW_COM) {
 #ifndef WIN32
 		if (cable_hw == CABLE_HW_USB)
-			printf("Using USB JTAG cable: %s\n", hmp->cable_path);
+			printf("Using USB cable: %s\n", hmp->cable_path);
 		else
 #ifdef USE_PPI
 			printf("Using parallel port JTAG cable.\n");
