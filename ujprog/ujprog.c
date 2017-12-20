@@ -200,7 +200,7 @@ static struct cable_hw_map {
 		.tms =		0x40,
 		.tdi =		0x80,
 		.tdo =		0x08,
-		.cbus_led =	0x02
+		.cbus_led =	0x00
 	},
 	{
 		.cable_hw =	CABLE_HW_UNKNOWN,
@@ -342,7 +342,7 @@ set_port_mode(int mode)
 		res = ftdi_set_bitmode(&fc,
 #endif
 		    USB_TCK | USB_TMS | USB_TDI | led_state,
-		    BITMODE_SYNCBB | BITMODE_CBUS);
+		    BITMODE_SYNCBB | (BITMODE_CBUS * (USB_CBUS_LED != 0)));
 
 		if (port_mode == PORT_MODE_SYNC)
 			break;
@@ -371,7 +371,7 @@ set_port_mode(int mode)
 		res = ftdi_set_bitmode(&fc,
 #endif
 		    USB_TCK | USB_TMS | USB_TDI | led_state,
-		    BITMODE_BITBANG | BITMODE_CBUS);
+		    BITMODE_BITBANG | (BITMODE_CBUS * (USB_CBUS_LED != 0)));
 		break;
 
 	case PORT_MODE_UART:
