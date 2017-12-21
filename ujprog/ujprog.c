@@ -2015,7 +2015,7 @@ exec_svf_file(char *path, int debug)
 	char *linebuf, *fbuf;
 	FILE *fd;
 	long flen;
-	int lines_tot = 0;
+	int lines_tot = 1;
 	int res;
 
 	fd = fopen(path, "r");
