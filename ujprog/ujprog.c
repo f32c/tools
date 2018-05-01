@@ -239,8 +239,8 @@ static char *statc = "-\\|/";
 
 /* Runtime globals */
 static int cur_s = UNDEFINED;
-static uint8_t txbuf[8 * BUFLEN_MAX];
-static uint8_t rxbuf[8 * BUFLEN_MAX];
+static uint8_t txbuf[64 * BUFLEN_MAX];
+static uint8_t rxbuf[64 * BUFLEN_MAX];
 static int txpos;
 static int need_led_blink;	/* Schedule CBUS led toggle */
 static int last_ledblink_ms;	/* Last time we toggled the CBUS LED */
@@ -2056,7 +2056,7 @@ exec_svf_file(char *path, int debug)
 static int
 exec_svf_mem(char *fbuf, int lines_tot, int debug)
 {
-	char cmdbuf[4096];
+	char cmdbuf[128 * 1024];
 	int lno, tokc, cmd_complete, parentheses_open;
 	int res = 0;
 	int llen = 0;
