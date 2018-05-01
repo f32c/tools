@@ -2015,7 +2015,7 @@ exec_svf_file(char *path, int debug)
 	char *linebuf, *fbuf;
 	FILE *fd;
 	long flen;
-	int lines_tot = 0;
+	int lines_tot = 1;
 	int res;
 
 	fd = fopen(path, "r");
@@ -2025,7 +2025,7 @@ exec_svf_file(char *path, int debug)
 	}
 
 	fseek(fd, 0, SEEK_END);
-	flen = ftell(fd);
+	flen = 2 * ftell(fd);
 	fseek(fd, 0, SEEK_SET);
 
 	fbuf = malloc(flen);
@@ -2041,6 +2041,7 @@ exec_svf_file(char *path, int debug)
 		flen -= strlen(linebuf) + 1;
 	}
 	fclose(fd);
+	*linebuf = 0;
 
 	res = exec_svf_mem(fbuf, lines_tot, debug);
 	free(fbuf);
