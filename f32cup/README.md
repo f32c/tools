@@ -10,7 +10,7 @@ Tested on linux.
 
 TODO
 
-    [ ] High speed upload (1 Mbit)
+    [x] High speed upload (3 Mbit)
 
 # Arduino
 
@@ -25,7 +25,7 @@ from PC first then it will work:
 
 TODO
 
-    [ ] High speed upload (1 Mbit)
+    [x] High speed upload (3 Mbit)
     [ ] How to send Serial break on ESP32
     [ ] Make f32c bitstream auto-switch to ESP32
         when serial break is detected on ESP32 line
