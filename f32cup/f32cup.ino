@@ -1,11 +1,13 @@
 #include <SD.h>
 
-String filename = "/ULX3S/f32c-bin/blink.bin";
+String Filename = "/ULX3S/f32c-bin/autoexec.bin";
+uint32_t Start_addr = 0x80000000; // the adress to load the binary
 
 uint8_t Retry_block = 5, Retry_crc = 4;
-uint32_t serial_baud_default = 115200;
+uint32_t serial_baud_default = 115200; // don't touch
 uint32_t serial_baud_upload = 115200;
-uint32_t serial_break_duration = 150; // ms
+uint32_t serial_break_duration = 150; // ms (serial break currenty doesn't work)
+uint32_t serial_baud_current = serial_baud_default;
 
 int File_len = 0;
 
@@ -24,6 +26,7 @@ int SD_mounted = -999;
 void setup()
 {
   Serial.begin(serial_baud_default);
+  serial_baud_current = serial_baud_default;
   pinMode(LED_BUILTIN, OUTPUT);  
 }
 
@@ -73,6 +76,11 @@ uint32_t crc_block(uint8_t *data, uint32_t len)
 int try_to_get_prompt(int retries)
 {
   uint8_t reply[255];
+  if(serial_baud_current != serial_baud_default)
+  {
+    Serial.begin(serial_baud_default);
+    serial_baud_current = serial_baud_default;
+  }
   serial_port_send_break(serial_break_duration);
   while(retries > 0)
   {
@@ -153,6 +161,11 @@ int upload_block(uint32_t addr, uint32_t len, uint8_t *chunk, uint8_t first)
         {
           write32(cmd_baud+1, serial_baud_upload);
           Serial.write(cmd_baud, sizeof(cmd_baud));
+          Serial.flush();
+          //Serial.end();
+          //delay(100);
+          Serial.begin(serial_baud_upload);
+          serial_baud_current = serial_baud_upload;
         }
       }
     }
@@ -207,7 +220,7 @@ void sd_unmount()
 
 int exec_binary(fs::FS &storage, String filename, uint32_t start_addr)
 {
-  File binary_file = storage.open(filename);
+  File binary_file = storage.open(Filename);
   File_len = binary_file.size();
   if(File_len <= 0)
     return 0;
@@ -243,7 +256,7 @@ void loop()
   SD_mounted = sd_mount();
   if(SD_mounted == 0)
   {
-    upload_retval = exec_binary(SD, filename, 0x80000000);
+    upload_retval = exec_binary(SD, Filename, Start_addr);
     if(upload_retval)
       led = ~led;
     sd_unmount();
