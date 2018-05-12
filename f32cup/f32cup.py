@@ -17,8 +17,8 @@ chunksize = 8192
 # seconds to hold serial break
 serial_break_duration = 0.1
 # bps serial
-serial_baud_default = 115200 # normal f32c prompt speed after reset
-serial_baud_upload = 115200 # upload speed - may be different than default
+serial_baud_default = 115200 # normal f32c prompt speed after reset (don't touch)
+serial_baud_upload = 115200 # upload speed - 115200 or 3000000 (3 Mbit)
 # seconds for serial port timeout
 serial_timeout = 0.1
 # serial file open descriptor
