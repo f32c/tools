@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 2.99.x1";
+static const char *verstr = "ULX2S JTAG programmer v 2.99.2";
 
 
 #include <ctype.h>
@@ -195,7 +195,84 @@ static struct cable_hw_map {
 		.cable_hw = 	CABLE_HW_USB,
 		.usb_vid = 	0x0403,
 		.usb_pid =	0x6015,
+		.cable_path =	"ULX3S FPGA board",
+		.tck =		0x20,
+		.tms =		0x40,
+		.tdi =		0x80,
+		.tdo =		0x08,
+		.cbus_led =	0x00
+	},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6015,
 		.cable_path =	"ULX3S FPGA v1.7",
+		.tck =		0x20,
+		.tms =		0x40,
+		.tdi =		0x80,
+		.tdo =		0x08,
+		.cbus_led =	0x00
+	},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6015,
+		.cable_path =	"ULX3S FPGA 25K v1.7",
+		.tck =		0x20,
+		.tms =		0x40,
+		.tdi =		0x80,
+		.tdo =		0x08,
+		.cbus_led =	0x00
+	},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6015,
+		.cable_path =	"ULX3S FPGA 45K v1.7",
+		.tck =		0x20,
+		.tms =		0x40,
+		.tdi =		0x80,
+		.tdo =		0x08,
+		.cbus_led =	0x00
+	},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6015,
+		.cable_path =	"ULX3S FPGA 12K v2.1.2",
+		.tck =		0x20,
+		.tms =		0x40,
+		.tdi =		0x80,
+		.tdo =		0x08,
+		.cbus_led =	0x00
+	},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6015,
+		.cable_path =	"ULX3S FPGA 25K v2.1.2",
+		.tck =		0x20,
+		.tms =		0x40,
+		.tdi =		0x80,
+		.tdo =		0x08,
+		.cbus_led =	0x00
+	},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6015,
+		.cable_path =	"ULX3S FPGA 45K v2.1.2",
+		.tck =		0x20,
+		.tms =		0x40,
+		.tdi =		0x80,
+		.tdo =		0x08,
+		.cbus_led =	0x00
+	},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6015,
+		.cable_path =	"ULX3S FPGA 85K v2.1.2",
 		.tck =		0x20,
 		.tms =		0x40,
 		.tdi =		0x80,
@@ -239,8 +316,8 @@ static char *statc = "-\\|/";
 
 /* Runtime globals */
 static int cur_s = UNDEFINED;
-static uint8_t txbuf[8 * BUFLEN_MAX];
-static uint8_t rxbuf[8 * BUFLEN_MAX];
+static uint8_t txbuf[64 * BUFLEN_MAX];
+static uint8_t rxbuf[64 * BUFLEN_MAX];
 static int txpos;
 static int need_led_blink;	/* Schedule CBUS led toggle */
 static int last_ledblink_ms;	/* Last time we toggled the CBUS LED */
@@ -696,7 +773,7 @@ set_tms_tdi(int tms, int tdi)
 static int
 send_generic(int bits, char *tdi, char *tdo, char *mask)
 {
-	int res, i, bitpos, tdomask, tdoval, maskval, val = 0;
+	int res, i, bitpos, tdomask, tdoval, maskval, val = 0, txval = 0;
 	int rxpos, rxlen;
 
 	if (cable_hw == CABLE_HW_USB)
@@ -748,17 +825,18 @@ send_generic(int bits, char *tdi, char *tdo, char *mask)
 			}
 		}
 
+		txval = val & 0x1;
 		if (bits > 1)
-			set_tms_tdi(0, val & 0x1);
+			set_tms_tdi(0, txval);
 		else
-			set_tms_tdi(1, val & 0x1);
+			set_tms_tdi(1, txval);
 
 		val = val >> 1;
 		bitpos = (bitpos + 1) & 0x3;
 	}
 
 	/* Move from *EXIT1 to *PAUSE state */
-	set_tms_tdi(0, 0);
+	set_tms_tdi(0, txval);
 
 	/* Send / receive data on JTAG port */
 	res = commit(0);
@@ -962,7 +1040,7 @@ set_state(int tgt_s) {
 
 	switch (tgt_s) {
 	case RESET:
-		for (i = 0; i < 5; i++)
+		for (i = 0; i < 6; i++)
 			set_tms_tdi(1, 0);
 		break;
 
@@ -1066,12 +1144,6 @@ set_state(int tgt_s) {
 			break;
 
 		case DRPAUSE:
-			set_state(DREXIT2);
-			set_state(DRUPDATE);
-			set_state(DRSELECT);
-			set_state(DRCAPTURE);
-			set_state(DREXIT1);
-			set_state(DRPAUSE);
 			break;
 
 		default:
@@ -1173,13 +1245,6 @@ set_state(int tgt_s) {
 			break;
 
 		case IRPAUSE:
-			set_state(IREXIT2);
-			set_state(IRUPDATE);
-			set_state(DRSELECT);
-			set_state(IRSELECT);
-			set_state(IRCAPTURE);
-			set_state(IREXIT1);
-			set_state(IRPAUSE);
 			break;
 
 		default:
@@ -1330,11 +1395,9 @@ exec_svf_tokenized(int tokc, char *tokv[])
 #endif
 		if (i > repeat)
 			repeat = i;
-		for (i = 1; i < repeat; i++) {
-			txbuf[txpos] = txbuf[txpos-2];
-			txpos++;
-			txbuf[txpos] = txbuf[txpos-2];
-			txpos++;
+		for (i = 0; i < repeat; i++) {
+			txbuf[txpos++] = 0;
+			txbuf[txpos++] = USB_TCK;
 			if (txpos >= sizeof(txbuf) / 2) {
 				commit(0);
 				if (need_led_blink)
@@ -2025,7 +2088,7 @@ exec_svf_file(char *path, int debug)
 	}
 
 	fseek(fd, 0, SEEK_END);
-	flen = ftell(fd);
+	flen = 2 * ftell(fd);
 	fseek(fd, 0, SEEK_SET);
 
 	fbuf = malloc(flen);
@@ -2041,6 +2104,7 @@ exec_svf_file(char *path, int debug)
 		flen -= strlen(linebuf) + 1;
 	}
 	fclose(fd);
+	*linebuf = 0;
 
 	res = exec_svf_mem(fbuf, lines_tot, debug);
 	free(fbuf);
@@ -2055,7 +2119,7 @@ exec_svf_file(char *path, int debug)
 static int
 exec_svf_mem(char *fbuf, int lines_tot, int debug)
 {
-	char cmdbuf[4096];
+	char cmdbuf[128 * 1024];
 	int lno, tokc, cmd_complete, parentheses_open;
 	int res = 0;
 	int llen = 0;
@@ -2278,7 +2342,6 @@ prog(char *fname, int jed_target, int debug)
 
 	/* Move TAP into RESET state. */
 	set_port_mode(PORT_MODE_ASYNC);
-	set_state(IDLE);
 	set_state(RESET);
 
 	commit(1);
