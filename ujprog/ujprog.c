@@ -280,6 +280,50 @@ static struct cable_hw_map {
 		.cbus_led =	0x00
 	},
 	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6015,
+		.cable_path =	"ULX3S FPGA 12K v3.0.3",
+		.tck =		0x20,
+		.tms =		0x40,
+		.tdi =		0x80,
+		.tdo =		0x08,
+		.cbus_led =	0x00
+	},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6015,
+		.cable_path =	"ULX3S FPGA 25K v3.0.3",
+		.tck =		0x20,
+		.tms =		0x40,
+		.tdi =		0x80,
+		.tdo =		0x08,
+		.cbus_led =	0x00
+	},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6015,
+		.cable_path =	"ULX3S FPGA 45K v3.0.3",
+		.tck =		0x20,
+		.tms =		0x40,
+		.tdi =		0x80,
+		.tdo =		0x08,
+		.cbus_led =	0x00
+	},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6015,
+		.cable_path =	"ULX3S FPGA 85K v3.0.3",
+		.tck =		0x20,
+		.tms =		0x40,
+		.tdi =		0x80,
+		.tdo =		0x08,
+		.cbus_led =	0x00
+	},
+	{
 		.cable_hw =	CABLE_HW_UNKNOWN,
 		.cable_path =	"UNKNOWN"
 	}
