@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S JTAG programmer v 2.99.x1";
+static const char *verstr = "ULX2S JTAG programmer v 2.99.2";
 
 
 #include <ctype.h>
@@ -1330,11 +1330,9 @@ exec_svf_tokenized(int tokc, char *tokv[])
 #endif
 		if (i > repeat)
 			repeat = i;
-		for (i = 1; i < repeat; i++) {
-			txbuf[txpos] = txbuf[txpos-2];
-			txpos++;
-			txbuf[txpos] = txbuf[txpos-2];
-			txpos++;
+		for (i = 0; i < repeat; i++) {
+			txbuf[txpos++] = 0;
+			txbuf[txpos++] = USB_TCK;
 			if (txpos >= sizeof(txbuf) / 2) {
 				commit(0);
 				if (need_led_blink)
