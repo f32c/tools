@@ -696,7 +696,7 @@ set_tms_tdi(int tms, int tdi)
 static int
 send_generic(int bits, char *tdi, char *tdo, char *mask)
 {
-	int res, i, bitpos, tdomask, tdoval, maskval, val = 0;
+	int res, i, bitpos, tdomask, tdoval, maskval, val = 0, txval = 0;
 	int rxpos, rxlen;
 
 	if (cable_hw == CABLE_HW_USB)
@@ -748,17 +748,18 @@ send_generic(int bits, char *tdi, char *tdo, char *mask)
 			}
 		}
 
+		txval = val & 0x1;
 		if (bits > 1)
-			set_tms_tdi(0, val & 0x1);
+			set_tms_tdi(0, txval);
 		else
-			set_tms_tdi(1, val & 0x1);
+			set_tms_tdi(1, txval);
 
 		val = val >> 1;
 		bitpos = (bitpos + 1) & 0x3;
 	}
 
 	/* Move from *EXIT1 to *PAUSE state */
-	set_tms_tdi(0, 0);
+	set_tms_tdi(0, txval);
 
 	/* Send / receive data on JTAG port */
 	res = commit(0);
