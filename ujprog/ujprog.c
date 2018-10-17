@@ -1067,12 +1067,6 @@ set_state(int tgt_s) {
 			break;
 
 		case DRPAUSE:
-			set_state(DREXIT2);
-			set_state(DRUPDATE);
-			set_state(DRSELECT);
-			set_state(DRCAPTURE);
-			set_state(DREXIT1);
-			set_state(DRPAUSE);
 			break;
 
 		default:
@@ -1174,13 +1168,6 @@ set_state(int tgt_s) {
 			break;
 
 		case IRPAUSE:
-			set_state(IREXIT2);
-			set_state(IRUPDATE);
-			set_state(DRSELECT);
-			set_state(IRSELECT);
-			set_state(IRCAPTURE);
-			set_state(IREXIT1);
-			set_state(IRPAUSE);
 			break;
 
 		default:
