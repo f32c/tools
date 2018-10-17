@@ -962,7 +962,7 @@ set_state(int tgt_s) {
 
 	switch (tgt_s) {
 	case RESET:
-		for (i = 0; i < 5; i++)
+		for (i = 0; i < 6; i++)
 			set_tms_tdi(1, 0);
 		break;
 
@@ -2277,7 +2277,6 @@ prog(char *fname, int jed_target, int debug)
 
 	/* Move TAP into RESET state. */
 	set_port_mode(PORT_MODE_ASYNC);
-	set_state(IDLE);
 	set_state(RESET);
 
 	commit(1);
