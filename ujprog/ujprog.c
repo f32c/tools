@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S / ULX3S JTAG programmer v 2.99.ecp5.1";
+static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0";
 
 
 #include <ctype.h>
@@ -391,10 +391,10 @@ set_port_mode(int mode)
 	if (need_led_blink) {
 		need_led_blink = 0;
 		led_state ^= USB_CBUS_LED;
-		if (!quiet) {
-			printf("\rProgramming: %d%% %c ",
+		if (!quiet && progress_perc < 100) {
+			fprintf(stderr, "\rProgramming: %d%% %c ",
 			    progress_perc, statc[blinker_phase]);
-			fflush(stdout);
+			fflush(stderr);
 		}
 		blinker_phase = (blinker_phase + 1) & 0x3;
 	}
@@ -510,6 +510,9 @@ setup_usb(void)
 		    && strcmp(Description, hmp->cable_path) == 0)
 			break;
 	}
+	if (hmp->cable_hw == CABLE_HW_UNKNOWN)
+		return (-1);
+
 	if (!quiet)
 		printf("Using USB cable: %s\n", hmp->cable_path);
 
@@ -2084,7 +2087,7 @@ exec_bit_file(char *path, int debug)
 	long flen, got;
 	uint32_t idcode;
 	int i, n;
-	int row_size = 8000 / 8;
+	int row_size = 64000 / 8;
 	int hexlen = 50;
 	int res;
 
@@ -2225,16 +2228,12 @@ exec_bit_file(char *path, int debug)
 	op += sprintf(op, "	MASK	(00002100);\n\n");
 	*op++ = 0;
 
-//	printf("%s", outbuf);
-
 	op--;
 	i = 0;
 	do {
 		if (*op == '\n')
 			i++;
 	} while (op-- != outbuf);
-
-	printf("%d", i);
 
 	res = exec_svf_mem(outbuf, i, debug);
 
