@@ -1522,8 +1522,8 @@ cmp_chip_ids(char *got, char *exp)
 
 
 /*
- * Parse a JEDEC file and convert it into SVF program, stored in a
- * contiguos chunk of memory.  If parsing is sucessfull proceed with
+ * Parse a Lattice XP2 JEDEC file and convert it into a SVF stream stored
+ * in a contiguos chunk of memory.  If parsing is sucessfull proceed with
  * calling exec_svf_mem().
  */
 static int
@@ -2068,6 +2068,182 @@ done:
 }
 
 
+#define	bitrev(a) ((a & 0x1)  << 7) | ((a & 0x2)  << 5) | ((a & 0x4)  << 3) | ((a & 0x8)  << 1) | ((a & 0x10) >> 1) | ((a & 0x20) >> 3) | ((a & 0x40) >> 5) | ((a & 0x80) >> 7)
+
+/*
+ * Parse a Lattice ECP5 bitstream file and convert it into a SVF stream,
+ * stored in a contiguos chunk of memory.  If parsing is sucessfull proceed
+ * with calling exec_svf_mem().
+ */
+static int
+exec_bit_file(char *path, int debug)
+{
+	uint8_t *inbuf;
+	char *outbuf, *op;
+	FILE *fd;
+	long flen, got;
+	uint32_t idcode;
+	int i, n;
+	int row_size = 8000 / 8;
+	int hexlen = 50;
+	int res;
+
+	fd = fopen(path, "r");
+	if (fd == NULL) {
+		fprintf(stderr, "open(%s) failed\n", path);
+		return (EXIT_FAILURE);
+	}
+
+	fseek(fd, 0, SEEK_END);
+	flen = ftell(fd);
+	fseek(fd, 0, SEEK_SET);
+
+	inbuf = malloc(flen);
+	outbuf = malloc(flen * 4); /* XXX rough estimate */
+	if (inbuf == NULL || outbuf == NULL) {
+		fprintf(stderr, "malloc(%ld) failed\n", flen);
+		return (EXIT_FAILURE);
+	}
+	op = outbuf;
+
+	got = fread(inbuf, 1, flen, fd);
+	if (got != flen) {
+		fprintf(stderr, "short read: %ld instead of %ld\n",
+		    got, flen);
+		return (EXIT_FAILURE);
+	}
+
+	for (i = 0; i < flen - 4; i++)
+		if (inbuf[i] == 0xe2 && inbuf[i + 1] == 0
+		    && inbuf[i + 2] == 0 && inbuf[i + 3] == 0)
+			break;
+	if (inbuf[i] != 0xe2) {
+		fprintf(stderr, "can't find IDCODE, invalid bitstream\n");
+		return (EXIT_FAILURE);
+	}
+	idcode = inbuf[i + 4] << 24;
+	idcode += inbuf[i + 5] << 16;
+	idcode += inbuf[i + 6] << 8;
+	idcode += inbuf[i + 7];
+
+	op += sprintf(op, "STATE IDLE;\n\n"); *op++ = 0;
+	*op++ = 0;
+
+	op += sprintf(op, "SIR	8	TDI	(E0);\n");
+	*op++ = 0;
+	op += sprintf(op, "SDR	32	TDI	(00000000)\n");
+	*op++ = 0;
+	op += sprintf(op, "	TDO	(%08X)\n", idcode);
+	*op++ = 0;
+	op += sprintf(op, "	MASK	(FFFFFFFF);\n\n");
+	*op++ = 0;
+
+	op += sprintf(op, "SIR	8	TDI	(1C);\n");
+	*op++ = 0;
+	op += sprintf(op, "SDR	510	TDI	(3FFFFFFFFFFFFFF"
+	    "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+	    "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF);\n\n");
+	*op++ = 0;
+
+	op += sprintf(op, "SIR	8	TDI	(C6);\n");
+	*op++ = 0;
+	op += sprintf(op, "SDR	8	TDI	(00);\n");
+	*op++ = 0;
+	op += sprintf(op, "RUNTEST IDLE    2 TCK   1.00E-02 SEC;\n\n");
+	*op++ = 0;
+
+	op += sprintf(op, "SIR	8	TDI	(3C);\n");
+	*op++ = 0;
+	op += sprintf(op, "SDR	32	TDI	(00000000)\n");
+	*op++ = 0;
+	op += sprintf(op, "	TDO	(00000000)\n");
+	*op++ = 0;
+	op += sprintf(op, "	MASK	(0000B000);\n\n");
+	*op++ = 0;
+
+	op += sprintf(op, "SIR	8	TDI	(46);\n");
+	*op++ = 0;
+	op += sprintf(op, "SDR	8	TDI	(01);\n");
+	*op++ = 0;
+	op += sprintf(op, "RUNTEST IDLE    2 TCK   1.00E-02 SEC;\n\n");
+	*op++ = 0;
+
+	op += sprintf(op, "SIR	8	TDI	(7A);\n");
+	*op++ = 0;
+	op += sprintf(op, "RUNTEST IDLE    2 TCK   1.00E-02 SEC;\n\n");
+	*op++ = 0;
+
+	for (i = 0; i < flen; i += row_size) {
+		n = flen - i;
+		if (n > row_size)
+			n = row_size;
+		op += sprintf(op, "SDR %d TDI (", n * 8);
+		*op++ = 0;
+		do {
+			n--;
+			op += sprintf(op, "%02X", bitrev(inbuf[i + n]));
+			if (n % hexlen == 0 && n > 0) {
+				op += sprintf(op, "\n\t");
+				*op++ = 0;
+			}
+		} while (n > 0);
+		op += sprintf(op, ");\n\n");
+		*op++ = 0;
+	}
+	
+	op += sprintf(op, "SIR	8	TDI	(FF);\n");
+	*op++ = 0;
+	op += sprintf(op, "RUNTEST IDLE    100 TCK   1.00E-02 SEC;\n\n");
+	*op++ = 0;
+
+	op += sprintf(op, "SIR	8	TDI	(C0);\n");
+	*op++ = 0;
+	op += sprintf(op, "RUNTEST IDLE    2 TCK   1.00E-03 SEC;\n");
+	*op++ = 0;
+	op += sprintf(op, "SDR	32	TDI	(00000000)\n");
+	*op++ = 0;
+	op += sprintf(op, "	TDO	(00000000)\n");
+	*op++ = 0;
+	op += sprintf(op, "	MASK	(FFFFFFFF);\n\n");
+	*op++ = 0;
+
+	op += sprintf(op, "SIR	8	TDI	(26);\n");
+	*op++ = 0;
+	op += sprintf(op, "RUNTEST IDLE    2 TCK   2.00E-01 SEC;\n\n");
+	*op++ = 0;
+	op += sprintf(op, "SIR	8	TDI	(FF);\n");
+	*op++ = 0;
+	op += sprintf(op, "RUNTEST IDLE    2 TCK   1.00E-03 SEC;\n\n");
+	*op++ = 0;
+
+	op += sprintf(op, "SIR	8	TDI	(3C);\n");
+	*op++ = 0;
+	op += sprintf(op, "SDR	32	TDI	(00000000)\n");
+	*op++ = 0;
+	op += sprintf(op, "	TDO	(00000100)\n");
+	*op++ = 0;
+	op += sprintf(op, "	MASK	(00002100);\n\n");
+	*op++ = 0;
+
+//	printf("%s", outbuf);
+
+	op--;
+	i = 0;
+	do {
+		if (*op == '\n')
+			i++;
+	} while (op-- != outbuf);
+
+	printf("%d", i);
+
+	res = exec_svf_mem(outbuf, i, debug);
+
+	free(outbuf);
+	free(inbuf);
+	return (res);
+}
+
+
 /*
  * Load a SVF file in a contiguos chunk of memory, count number of lines,
  * and then call exec_svf_mem().
@@ -2135,7 +2311,7 @@ exec_svf_mem(char *fbuf, int lines_tot, int debug)
 
 	for (lno = 1; lno < lines_tot; lno++, linebuf += llen) {
 		if (debug)
-			printf("%s", linebuf);
+			printf("%d: %s", lno, linebuf);
 
 		llen = strlen(linebuf) + 1;
 		progress_perc = lno * 1005 / (lines_tot * 10);
@@ -2149,7 +2325,7 @@ exec_svf_mem(char *fbuf, int lines_tot, int debug)
 
 			/* If command is complete we shouldn't end up here! */
 			if (cmd_complete) {
-				fprintf(stderr, "Line %d: multiple commands"
+				fprintf(stderr, "Line %d: multiple commands "
 				    "on single line\n", lno);
 				return (EXIT_FAILURE);
 			}
@@ -2353,8 +2529,12 @@ prog(char *fname, int jed_target, int debug)
 	}
 	if (strcasecmp(&fname[c], ".jed") == 0)
 		res = exec_jedec_file(fname, jed_target, debug);
-	else
+	else if (strcasecmp(&fname[c], ".bit") == 0)
+		res = exec_bit_file(fname, debug);
+	else if (strcasecmp(&fname[c], ".svf") == 0)
 		res = exec_svf_file(fname, debug);
+	else
+		res = -1;
 
 	/* Leave TAP in RESET state. */
 	set_port_mode(PORT_MODE_ASYNC);
@@ -2365,8 +2545,8 @@ prog(char *fname, int jed_target, int debug)
 	tend = ms_uptime();
 	if (res == 0) {
 		if (!quiet) {
-			printf("\rProgramming: 100%%  ");
-			printf("\nCompleted in %.2f seconds.\n",
+			fprintf(stderr, "\rProgramming: 100%%  ");
+			fprintf(stderr, "\nCompleted in %.2f seconds.\n",
 			    (tend - tstart) / 1000.0);
 		}
 	} else
