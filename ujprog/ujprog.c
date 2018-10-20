@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0";
+static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.1";
 
 
 #include <ctype.h>
@@ -1383,7 +1383,7 @@ exec_svf_tokenized(int tokc, char *tokv[])
 			if (strlen(tokv[3]) == 8 && strlen(tokv[5]) == 8 &&
 			    strcmp(tokv[7], "FFFFFFFF") == 0 &&
 			    cmp_chip_ids(tokv[3], tokv[5]) == 0)
-				return (EXIT_FAILURE);
+				return (ENODEV);
 			fprintf(stderr, "Received and expected data "
 			    "do not match!\n");
 			if (tokc == 6)
@@ -1496,43 +1496,71 @@ static struct jed_devices {
 	char	*name;
 	int	id;
 	int	fuses;
+	int	col_width;
 	int	row_width;
-	int	addr_len;
 } jed_devices[] = {
 	{
 		.name =		"LFXP2-5E",
 		.id =		0x01299043,
 		.fuses =	1236476,
-		.row_width =	638,
-		.addr_len =	1938,
+		.col_width =	638,
+		.row_width =	1938,
 	},
 	{
 		.name =		"LFXP2-8E",
 		.id =		0x0129A043,
 		.fuses =	1954736,
-		.row_width =	772,
-		.addr_len =	2532,
+		.col_width =	772,
+		.row_width=	2532,
 	},
 	{
 		.name =		"LFXP2-17E",
 		.id =		0x0129B043,
 		.fuses =	3627704,
-		.row_width =	2188,
-		.addr_len =	1658,
+		.col_width =	2188,
+		.row_width =	1658,
 	},
 	{
 		.name =		"LFXP2-30E",
 		.id =		0x0129D043,
 		.fuses =	5954320,
-		.row_width =	2644,
-		.addr_len =	2532,
+		.col_width =	2644,
+		.row_width =	2532,
 	},
 	{
 		.name =		"LFXP2-40E",
 		.id =		0x0129E043,
 		.fuses =	8304368,
-		.row_width =	3384,
-		.addr_len =	2454,
+		.col_width =	3384,
+		.row_width =	2454,
+	},
+	{
+		.name =		"LFE5U-12E",
+		.id =		0x21111043,
+		.fuses =	5681848,
+		.col_width =	592,
+		.row_width =	7562,
+	},
+	{
+		.name =		"LFE5U-25E",
+		.id =		0x41111043,
+		.fuses =	5681848,
+		.col_width =	592,
+		.row_width =	7562,
+	},
+	{
+		.name =		"LFE5U-45E",
+		.id =		0x41112043,
+		.fuses =	10208312,
+		.col_width =	848,
+		.row_width =	9470,
+	},
+	{
+		.name =		"LFE5U-85E",
+		.id =		0x41113043,
+		.fuses =	19244856,
+		.col_width =	1136,
+		.row_width =	13294,
 	},
 	{NULL, 0, 0}
 };
@@ -1541,29 +1569,33 @@ static struct jed_devices {
 static int
 cmp_chip_ids(char *got, char *exp)
 {
-	int i, got_i, exp_i;
+	int got_id, exp_id;
+	struct jed_devices *got_jd, *exp_jd;
 
-	sscanf(got, "%x", &got_i);
-	sscanf(exp, "%x", &exp_i);
+	sscanf(got, "%x", &got_id);
+	sscanf(exp, "%x", &exp_id);
 
-	for (i = 0; jed_devices[i].name != NULL; i++)
-		if (jed_devices[i].id == got_i) {
-			got_i = i;
+	for (got_jd = jed_devices; got_jd->name != NULL; got_jd++)
+		if (got_jd->id == got_id)
 			break;
-		}
-	if (jed_devices[i].name == NULL)
+	for (exp_jd = jed_devices; exp_jd->name != NULL; exp_jd++)
+		if (exp_jd->id == exp_id)
+			break;
+
+	if (exp_jd->name == NULL && got_jd->name == NULL)
 		return (EXIT_FAILURE);
-	for (i = 0; jed_devices[i].name != NULL; i++)
-		if (jed_devices[i].id == exp_i)
-			break;
 
-	fprintf(stderr, "Found %s device, but bitstream is for ",
-	    jed_devices[got_i].name);
-	if (jed_devices[i].name == NULL)
-		fprintf(stderr, "unknown device (%08x).\n", exp_i);
+	fprintf(stderr, "\nFound ");
+	if (got_jd->name)
+		fprintf(stderr, "%s", got_jd->name);
 	else
-		if (!quiet)
-			printf("%s.\n", jed_devices[i].name);
+		fprintf(stderr, "unknown (%s)", got);
+	fprintf(stderr, " device, but the bitstream is for ");
+	if (exp_jd->name)
+		fprintf(stderr, "%s", exp_jd->name);
+	else
+		fprintf(stderr, "unknown (%s)", exp);
+	fprintf(stderr, ".\n");
 	return (0);
 }
 
@@ -1672,7 +1704,7 @@ exec_jedec_file(char *path, int target, int debug)
 			}
 
 			for (incp = inbuf, row = 1;
-			    row <= jed_devices[jed_dev].addr_len; row++) {
+			    row <= jed_devices[jed_dev].row_width; row++) {
 				if (target == JED_TGT_FLASH) {
 					outcp += sprintf(outcp,
 					    "SIR	8	TDI  (67);\n");
@@ -1680,7 +1712,7 @@ exec_jedec_file(char *path, int target, int debug)
 				}
 
 				val = 0;
-				for (i = jed_devices[jed_dev].row_width, j = 0;
+				for (i = jed_devices[jed_dev].col_width, j = 0;
 				    i > 0; i--, val <<= 1) {
 					val += (incp[i - 1] == '1');
 					if ((i & 0x3) == 1) {
@@ -1694,14 +1726,14 @@ exec_jedec_file(char *path, int target, int debug)
 					}
 				}
 				tmpbuf[j++] = 0;
-				incp += jed_devices[jed_dev].row_width;
+				incp += jed_devices[jed_dev].col_width;
 
 				outcp += sprintf(outcp,
 				    "! Shift in Data Row = %d\n", row);
 				*outcp++ = 0;
 				outcp += sprintf(outcp,
 				    "SDR	%d	TDI  (%s);\n",
-				    jed_devices[jed_dev].row_width, tmpbuf);
+				    jed_devices[jed_dev].col_width, tmpbuf);
 				*outcp++ = 0;
 				if (target == JED_TGT_FLASH) {
 					outcp += sprintf(outcp,
@@ -2196,7 +2228,7 @@ exec_bit_file(char *path, int debug)
 	*op++ = 0;
 	op += sprintf(op, "SDR	8	TDI	(00);\n");
 	*op++ = 0;
-	op += sprintf(op, "RUNTEST IDLE    2 TCK   1.00E-02 SEC;\n\n");
+	op += sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
 	*op++ = 0;
 
 	op += sprintf(op, "SIR	8	TDI	(3C);\n");
@@ -2212,12 +2244,12 @@ exec_bit_file(char *path, int debug)
 	*op++ = 0;
 	op += sprintf(op, "SDR	8	TDI	(01);\n");
 	*op++ = 0;
-	op += sprintf(op, "RUNTEST IDLE    2 TCK   1.00E-02 SEC;\n\n");
+	op += sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
 	*op++ = 0;
 
 	op += sprintf(op, "SIR	8	TDI	(7A);\n");
 	*op++ = 0;
-	op += sprintf(op, "RUNTEST IDLE    2 TCK   1.00E-02 SEC;\n\n");
+	op += sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
 	*op++ = 0;
 
 	for (i = 0; i < flen; i += row_size) {
@@ -2240,12 +2272,12 @@ exec_bit_file(char *path, int debug)
 	
 	op += sprintf(op, "SIR	8	TDI	(FF);\n");
 	*op++ = 0;
-	op += sprintf(op, "RUNTEST IDLE    100 TCK   1.00E-02 SEC;\n\n");
+	op += sprintf(op, "RUNTEST IDLE    100 TCK;\n\n");
 	*op++ = 0;
 
 	op += sprintf(op, "SIR	8	TDI	(C0);\n");
 	*op++ = 0;
-	op += sprintf(op, "RUNTEST IDLE    2 TCK   1.00E-03 SEC;\n");
+	op += sprintf(op, "RUNTEST IDLE    2 TCK;\n");
 	*op++ = 0;
 	op += sprintf(op, "SDR	32	TDI	(00000000)\n");
 	*op++ = 0;
@@ -2256,7 +2288,7 @@ exec_bit_file(char *path, int debug)
 
 	op += sprintf(op, "SIR	8	TDI	(26);\n");
 	*op++ = 0;
-	op += sprintf(op, "RUNTEST IDLE    2 TCK   2.00E-01 SEC;\n\n");
+	op += sprintf(op, "RUNTEST IDLE    2 TCK   2.00E-03 SEC;\n\n");
 	*op++ = 0;
 	op += sprintf(op, "SIR	8	TDI	(FF);\n");
 	*op++ = 0;
@@ -2433,8 +2465,10 @@ exec_svf_mem(char *fbuf, int lines_tot, int debug)
 		/* Execute command */
 		res = exec_svf_tokenized(tokc, tokv);
 		if (res) {
-			fprintf(stderr, "Line %d: %s\n", lno, strerror(res));
-			return (EXIT_FAILURE);
+			if (res != ENODEV)
+				fprintf(stderr, "Line %d: %s\n", lno,
+				    strerror(res));
+			return (res);
 		}
 
 		cp = cmdbuf;
