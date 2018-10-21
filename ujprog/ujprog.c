@@ -2516,10 +2516,10 @@ usage(void)
 	printf("  -P TTY	Select TTY port (valid only with -t or -a)\n");
 #endif
 	printf("  -j TARGET	Select bitstream TARGET as SRAM (default)"
-	    " or FLASH\n");
+	    " or FLASH (XP2 only)\n");
 	printf("  -s FILE	Convert bitstream to SVF FILE and exit\n");
 	printf("  -r		Reload FPGA configuration from"
-	    " internal Flash\n");
+	    " internal Flash (XP2 only)\n");
 	printf("  -t		Enter terminal emulation mode after"
 	    " completing JTAG operations\n");
 	printf("  -b SPEED	Set baudrate to SPEED (300 to 3000000"
@@ -2532,8 +2532,10 @@ usage(void)
 	    " DELAY ms\n");
 	printf("  -q 		Suppress messages\n");
 
-	printf("\n Terminal emulation mode commands:\n");
-	terminal_help();
+	if (terminal) {
+		printf("\n Terminal emulation mode commands:\n");
+		terminal_help();
+	}
 #ifndef WIN32
 	printf("\n");
 #endif
