@@ -1462,12 +1462,16 @@ exec_svf_tokenized(int tokc, char *tokv[])
 		break;
 
 	case SVF_ENDDR:
-		if (tokc != 2 || strcmp(tokv[1], "DRPAUSE") != 0)
+		if (tokc != 2 ||
+		    (strcmp(tokv[1], "DRPAUSE") != 0 &&
+		    strcmp(tokv[1], "IDLE") != 0))
 			res = EINVAL;
 		break;
 
 	case SVF_ENDIR:
-		if (tokc != 2 || strcmp(tokv[1], "IRPAUSE") != 0)
+		if (tokc != 2 ||
+		    (strcmp(tokv[1], "IRPAUSE") != 0 &&
+		    strcmp(tokv[1], "IDLE") != 0))
 			res = EINVAL;
 		break;
 
