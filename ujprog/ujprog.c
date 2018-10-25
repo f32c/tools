@@ -2460,7 +2460,8 @@ exec_svf_mem(char *fbuf, int lines_tot, int debug)
 			}
 			*cp = toupper(*cp);
 		}
-		tokc++;
+		if (*tokv[tokc] != 0)
+			tokc++;
 
 		/* Execute command */
 		res = exec_svf_tokenized(tokc, tokv);
