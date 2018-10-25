@@ -2395,7 +2395,9 @@ exec_svf_mem(char *fbuf, int lines_tot, int debug)
 		for (item = strtok_r(linebuf, sep, &brkt); item;
 		    item = strtok_r(NULL, sep, &brkt)) {
 			/* Skip comments */
-			if (*item == '!')
+			if (item[0] == '!')
+				break;
+			if (item[0] == '/' && item[1] == '/')
 				break;
 
 			/* If command is complete we shouldn't end up here! */
