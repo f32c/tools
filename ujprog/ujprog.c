@@ -2424,6 +2424,13 @@ exec_svf_mem(char *fbuf, int lines_tot, int debug)
 				}
 				parentheses_open = 1;
 			}
+			if (!parentheses_open)
+				for (char *ct = item; ct < c1; ct++)
+					if (*ct == '(') {
+						*ct = ' ';
+						parentheses_open = 1;
+						break;
+					}
 			if (*c1 == ')') {
 				*c1 = 0;
 				if (!parentheses_open) {
