@@ -8,19 +8,19 @@ import time
 import struct
 
 
-print("f32c python uploader (under construction)")
+print("f32c python uploader v1.0")
 f32c_serial_device_name = "/dev/ttyUSB0"
-f32c_filename = sys.argv[1]
+f32c_filename = sys.argv[-1]
 
 # byte length of chunked file read and upload
 chunksize = 8192
 # seconds to hold serial break
-serial_break_duration = 0.1
+serial_break_duration = 0.12
 # bps serial
 serial_baud_default = 115200 # normal f32c prompt speed after reset (don't touch)
 serial_baud_upload = 115200 # upload speed - 115200 or 3000000 (3 Mbit)
 # seconds for serial port timeout
-serial_timeout = 0.1
+serial_timeout = 0.2
 # serial file open descriptor
 serial_port = None
 # file open descriptor
@@ -39,18 +39,18 @@ def get_cmdline_options():
 
  opts, extraparams = getopt.getopt(
      sys.argv[1:],
-     'p:b',
-     ['port=', 'baud=', 'break=', 'chunk=', 'binfile=']
+     'p:b:f:',
+     ['port=', 'baud=', 'break=', 'chunk=', 'file=']
  )
    
  for o,p in opts:
-  if o in ['--baud']:
-   serial_baud_upload = int(p)
+  if o in ['-b','--baud']:
+   serial_baud_upload = int(float(p)+0.5)
   if o in ['--chunk']:
    chunksize = int(p)
   elif o in ['--break']:
    serial_break_duration = float(p)
-  elif o in ['-b','--binfile']:
+  elif o in ['-f','--file']:
    f32c_filename = p
   elif o in ['-p','--port']:
    f32c_serial_device_name = p
@@ -204,7 +204,14 @@ def read_upload_jump():
     print("JUMP 0x%08X" % (start_address,) )
 
 
-get_cmdline_options()
-serial_port=serial.Serial(f32c_serial_device_name, serial_baud_default, rtscts=False, timeout=serial_timeout)
-read_upload_jump()
-serial_port.close()
+def main():
+  global f32c_serial_device_name
+  global serial_baud_default
+  global serial_port
+
+  get_cmdline_options()
+  serial_port=serial.Serial(f32c_serial_device_name, serial_baud_default, rtscts=False, timeout=serial_timeout)
+  read_upload_jump()
+  serial_port.close()
+
+main()

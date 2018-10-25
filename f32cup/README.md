@@ -6,11 +6,10 @@ Simple source code for uploading f32c binary executable over serial port.
 # Python
 
 Python source to upload and execute f32c binary code.
-Tested on linux.
+Tested on linux. Default speed 115200, optionally it 
+can do 3 Mbit upload:
 
-TODO
-
-    [x] High speed upload (3 Mbit)
+    f32cup.py -b3e6 file.bin
 
 # Arduino
 
