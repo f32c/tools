@@ -69,6 +69,7 @@ def try_to_get_prompt(retries = 2):
     serial_port.reset_input_buffer()
     serial_port.reset_output_buffer()
     serial_port.send_break(duration = 1000.0 * serial_break_duration) # ms duration
+    serial_port.write(b" ")
     reply = serial_port.read(20)
     if reply.find(b"m32l> "):
       return 1 # MIPS little-endian prompt is found
