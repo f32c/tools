@@ -2153,6 +2153,11 @@ done:
 
 #define	bitrev(a) ((a & 0x1)  << 7) | ((a & 0x2)  << 5) | ((a & 0x4)  << 3) | ((a & 0x8)  << 1) | ((a & 0x10) >> 1) | ((a & 0x20) >> 3) | ((a & 0x40) >> 5) | ((a & 0x80) >> 7)
 
+#define	buf_sprintf(p, ...) do { \
+	(p) += sprintf((p), ## __VA_ARGS__); \
+	 *(p)++ = 0; \
+} while (0)
+
 /*
  * Parse a Lattice ECP5 bitstream file and convert it into a SVF stream,
  * stored in a contiguos chunk of memory.  If parsing is sucessfull proceed
@@ -2209,104 +2214,66 @@ exec_bit_file(char *path, int jed_target, int debug)
 	idcode += inbuf[i + 6] << 8;
 	idcode += inbuf[i + 7];
 
-	op += sprintf(op, "STATE IDLE;\n\n");
-	*op++ = 0;
+	buf_sprintf(op, "STATE IDLE;\n\n");
 
-	op += sprintf(op, "SIR	8	TDI	(E0);\n");
-	*op++ = 0;
-	op += sprintf(op, "SDR	32	TDI	(00000000)\n");
-	*op++ = 0;
-	op += sprintf(op, "	TDO	(%08X)\n", idcode);
-	*op++ = 0;
-	op += sprintf(op, "	MASK	(FFFFFFFF);\n\n");
-	*op++ = 0;
+	buf_sprintf(op, "SIR	8	TDI	(E0);\n");
+	buf_sprintf(op, "SDR	32	TDI	(00000000)\n");
+	buf_sprintf(op, "	TDO	(%08X)\n", idcode);
+	buf_sprintf(op, "	MASK	(FFFFFFFF);\n\n");
 
-	op += sprintf(op, "SIR	8	TDI	(1C);\n");
-	*op++ = 0;
-	op += sprintf(op, "SDR	510	TDI	(3FFFFFFFFFFFFFF"
+	buf_sprintf(op, "SIR	8	TDI	(1C);\n");
+	buf_sprintf(op, "SDR	510	TDI	(3FFFFFFFFFFFFFF"
 	    "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
 	    "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF);\n\n");
-	*op++ = 0;
 
-	op += sprintf(op, "SIR	8	TDI	(C6);\n");
-	*op++ = 0;
-	op += sprintf(op, "SDR	8	TDI	(00);\n");
-	*op++ = 0;
-	op += sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
-	*op++ = 0;
+	buf_sprintf(op, "SIR	8	TDI	(C6);\n");
+	buf_sprintf(op, "SDR	8	TDI	(00);\n");
+	buf_sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
 
-	op += sprintf(op, "SIR	8	TDI	(3C);\n");
-	*op++ = 0;
-	op += sprintf(op, "SDR	32	TDI	(00000000)\n");
-	*op++ = 0;
-	op += sprintf(op, "	TDO	(00000000)\n");
-	*op++ = 0;
-	op += sprintf(op, "	MASK	(0000B000);\n\n");
-	*op++ = 0;
+	buf_sprintf(op, "SIR	8	TDI	(3C);\n");
+	buf_sprintf(op, "SDR	32	TDI	(00000000)\n");
+	buf_sprintf(op, "	TDO	(00000000)\n");
+	buf_sprintf(op, "	MASK	(0000B000);\n\n");
 
-	op += sprintf(op, "SIR	8	TDI	(46);\n");
-	*op++ = 0;
-	op += sprintf(op, "SDR	8	TDI	(01);\n");
-	*op++ = 0;
-	op += sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
-	*op++ = 0;
+	buf_sprintf(op, "SIR	8	TDI	(46);\n");
+	buf_sprintf(op, "SDR	8	TDI	(01);\n");
+	buf_sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
 
-	op += sprintf(op, "SIR	8	TDI	(7A);\n");
-	*op++ = 0;
-	op += sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
-	*op++ = 0;
+	buf_sprintf(op, "SIR	8	TDI	(7A);\n");
+	buf_sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
 
 	for (i = 0; i < flen; i += row_size) {
 		n = flen - i;
 		if (n > row_size)
 			n = row_size;
-		op += sprintf(op, "SDR %d TDI (", n * 8);
-		*op++ = 0;
+		buf_sprintf(op, "SDR %d TDI (", n * 8);
 		do {
 			n--;
 			op += sprintf(op, "%02X", bitrev(inbuf[i + n]));
-			if (n % hexlen == 0 && n > 0) {
-				op += sprintf(op, "\n\t");
-				*op++ = 0;
-			}
+			if (n % hexlen == 0 && n > 0)
+				buf_sprintf(op, "\n\t");
 		} while (n > 0);
-		op += sprintf(op, ");\n\n");
-		*op++ = 0;
+		buf_sprintf(op, ");\n\n");
 	}
 	
-	op += sprintf(op, "SIR	8	TDI	(FF);\n");
-	*op++ = 0;
-	op += sprintf(op, "RUNTEST IDLE    100 TCK;\n\n");
-	*op++ = 0;
+	buf_sprintf(op, "SIR	8	TDI	(FF);\n");
+	buf_sprintf(op, "RUNTEST IDLE    100 TCK;\n\n");
 
-	op += sprintf(op, "SIR	8	TDI	(C0);\n");
-	*op++ = 0;
-	op += sprintf(op, "RUNTEST IDLE    2 TCK;\n");
-	*op++ = 0;
-	op += sprintf(op, "SDR	32	TDI	(00000000)\n");
-	*op++ = 0;
-	op += sprintf(op, "	TDO	(00000000)\n");
-	*op++ = 0;
-	op += sprintf(op, "	MASK	(FFFFFFFF);\n\n");
-	*op++ = 0;
+	buf_sprintf(op, "SIR	8	TDI	(C0);\n");
+	buf_sprintf(op, "RUNTEST IDLE    2 TCK;\n");
+	buf_sprintf(op, "SDR	32	TDI	(00000000)\n");
+	buf_sprintf(op, "	TDO	(00000000)\n");
+	buf_sprintf(op, "	MASK	(FFFFFFFF);\n\n");
 
-	op += sprintf(op, "SIR	8	TDI	(26);\n");
-	*op++ = 0;
-	op += sprintf(op, "RUNTEST IDLE    2 TCK   2.00E-03 SEC;\n\n");
-	*op++ = 0;
-	op += sprintf(op, "SIR	8	TDI	(FF);\n");
-	*op++ = 0;
-	op += sprintf(op, "RUNTEST IDLE    2 TCK   1.00E-03 SEC;\n\n");
-	*op++ = 0;
+	buf_sprintf(op, "SIR	8	TDI	(26);\n");
+	buf_sprintf(op, "RUNTEST IDLE    2 TCK   2.00E-03 SEC;\n\n");
+	buf_sprintf(op, "SIR	8	TDI	(FF);\n");
+	buf_sprintf(op, "RUNTEST IDLE    2 TCK   1.00E-03 SEC;\n\n");
 
-	op += sprintf(op, "SIR	8	TDI	(3C);\n");
-	*op++ = 0;
-	op += sprintf(op, "SDR	32	TDI	(00000000)\n");
-	*op++ = 0;
-	op += sprintf(op, "	TDO	(00000100)\n");
-	*op++ = 0;
-	op += sprintf(op, "	MASK	(00002100);\n\n");
-	*op++ = 0;
+	buf_sprintf(op, "SIR	8	TDI	(3C);\n");
+	buf_sprintf(op, "SDR	32	TDI	(00000000)\n");
+	buf_sprintf(op, "	TDO	(00000100)\n");
+	buf_sprintf(op, "	MASK	(00002100);\n\n");
 
 	op--;
 	i = 0;
