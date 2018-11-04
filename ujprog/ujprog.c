@@ -2159,7 +2159,7 @@ done:
  * with calling exec_svf_mem().
  */
 static int
-exec_bit_file(char *path, int debug)
+exec_bit_file(char *path, int jed_target, int debug)
 {
 	uint8_t *inbuf;
 	char *outbuf, *op;
@@ -2623,7 +2623,7 @@ prog(char *fname, int jed_target, int debug)
 	if (strcasecmp(&fname[c], ".jed") == 0)
 		res = exec_jedec_file(fname, jed_target, debug);
 	else if (strcasecmp(&fname[c], ".bit") == 0)
-		res = exec_bit_file(fname, debug);
+		res = exec_bit_file(fname, jed_target, debug);
 	else if (strcasecmp(&fname[c], ".svf") == 0)
 		res = exec_svf_file(fname, debug);
 	else
@@ -3908,11 +3908,9 @@ main(int argc, char *argv[])
 			break;
 #ifdef USE_PPI
 		case 'c':
-			if (strcmp(optarg, "usb") == 0 ||
-			    strcmp(optarg, "USB") == 0)
+			if (strcasecmp(optarg, "usb") == 0)
 				cable_hw = CABLE_HW_USB;
-			else if (strcmp(optarg, "ppi") == 0 ||
-			    strcmp(optarg, "PPI") == 0)
+			else if (strcasecmp(optarg, "ppi") == 0)
 				cable_hw = CABLE_HW_PPI;
 			else {
 				usage();
@@ -3932,11 +3930,9 @@ main(int argc, char *argv[])
 			tx_binary = 1;
 			break;
 		case 'j':
-			if (strcmp(optarg, "sram") == 0 ||
-			    strcmp(optarg, "SRAM") == 0)
+			if (strcasecmp(optarg, "sram"))
 				jed_target = JED_TGT_SRAM;
-			else if (strcmp(optarg, "flash") == 0 ||
-			    strcmp(optarg, "FLASH") == 0)
+			else if (strcasecmp(optarg, "flash"))
 				jed_target = JED_TGT_FLASH;
 			else {
 				usage();
