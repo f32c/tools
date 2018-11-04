@@ -2209,7 +2209,7 @@ exec_bit_file(char *path, int jed_target, int debug)
 	idcode += inbuf[i + 6] << 8;
 	idcode += inbuf[i + 7];
 
-	op += sprintf(op, "STATE IDLE;\n\n"); *op++ = 0;
+	op += sprintf(op, "STATE IDLE;\n\n");
 	*op++ = 0;
 
 	op += sprintf(op, "SIR	8	TDI	(E0);\n");
