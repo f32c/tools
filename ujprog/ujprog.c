@@ -2569,7 +2569,7 @@ gets1(char *cp, int size)
 
 
 static int
-prog(char *fname, int jed_target, int debug)
+prog(char *fname, int target, int debug)
 {
 	int res, c, tstart, tend;
 
@@ -2588,9 +2588,9 @@ prog(char *fname, int jed_target, int debug)
 		exit(EXIT_FAILURE);
 	}
 	if (strcasecmp(&fname[c], ".jed") == 0)
-		res = exec_jedec_file(fname, jed_target, debug);
+		res = exec_jedec_file(fname, target, debug);
 	else if (strcasecmp(&fname[c], ".bit") == 0)
-		res = exec_bit_file(fname, jed_target, debug);
+		res = exec_bit_file(fname, target, debug);
 	else if (strcasecmp(&fname[c], ".svf") == 0)
 		res = exec_svf_file(fname, debug);
 	else
@@ -3897,9 +3897,9 @@ main(int argc, char *argv[])
 			tx_binary = 1;
 			break;
 		case 'j':
-			if (strcasecmp(optarg, "sram"))
+			if (strcasecmp(optarg, "sram") == 0)
 				jed_target = JED_TGT_SRAM;
-			else if (strcasecmp(optarg, "flash"))
+			else if (strcasecmp(optarg, "flash") == 0)
 				jed_target = JED_TGT_FLASH;
 			else {
 				usage();
