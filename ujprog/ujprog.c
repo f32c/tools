@@ -2616,6 +2616,7 @@ prog(char *fname, int target, int debug)
 }
 
 
+#if 0
 static void
 reload_xp2_flash(int debug)
 {
@@ -2649,6 +2650,7 @@ reload_xp2_flash(int debug)
 	set_state(RESET);
 	commit(1);
 }
+#endif
 
 
 static int
@@ -4071,10 +4073,7 @@ main(int argc, char *argv[])
 
 	do {
 		if (reload) {
-			if (cable_hw == CABLE_HW_USB)
-				reload_xp2_flash(debug);
-			else
-				genbrk();
+			genbrk();
 			reload = 0;
 		}
 		if (argc)
