@@ -368,10 +368,11 @@ static int last_ledblink_ms;	/* Last time we toggled the CBUS LED */
 static int led_state;		/* CBUS LED indicator state */
 static int blinker_phase;
 static int progress_perc;
-static int bauds = 115200;
+static int bauds = 115200;	/* async terminal emulation baudrate */
+static int xbauds;		/* binary transfer baudrate */
 static int port_index;
 static int terminal;		/* terminal emulation mode */
-static int reload;		/* reload FPGA from Flash? */
+static int reload;		/* send break to reset f32c */
 static int quiet;		/* suppress standard messages */
 char *svf_name;			/* SVF output name */
 static int txfu_ms;		/* txt file upload character delay (ms) */
@@ -2507,6 +2508,7 @@ usage(void)
 	    " bauds)\n");
 	printf("  -e FILE	Send and execute a f32c (MIPS/RISCV) binary "
 	    "FILE\n");
+	printf("  -x SPEED	Set binary transfer speed\n");
 	printf("  -a FILE	Send a raw FILE\n");
 	printf("  -d 		debug (verbose)\n");
 	printf("  -D DELAY	Delay transmission of each byte by"
@@ -2780,6 +2782,20 @@ async_set_baudrate(int speed)
 #else
 		ftdi_set_baudrate(&fc, speed);
 #endif
+	} else {
+#ifdef WIN32
+		tty.BaudRate = speed;
+		if (SetCommState(com_port, &tty) == 0) {
+			fprintf(stderr, "Can't set baudrate to %d\n", speed);
+			exit(EXIT_FAILURE);
+		}
+#else
+		cfsetspeed(&tty, speed);
+		if (tcsetattr(com_port, TCSAFLUSH, &tty) != 0) {
+			fprintf(stderr, "Can't set baudrate to %d\n", speed);
+			exit(EXIT_FAILURE);
+		}
+#endif
 	}
 	return (0);
 }
@@ -2842,7 +2858,8 @@ txfile(void)
 		}
 		bootaddr = base;
 		if (!quiet)
-			printf(" binary, loading at 0x%08x\n", base);
+			printf(" binary, loading at 0x%08x, "
+			    "TX speed %d bauds\n", base, xbauds);
 	}
 
 	infile = open(txfname,
@@ -2857,9 +2874,9 @@ txfile(void)
 		return;
 	}
 
+	async_set_baudrate(bauds);
 	if (cable_hw == CABLE_HW_USB) {
 		set_port_mode(PORT_MODE_UART);
-		async_set_baudrate(bauds);
 #ifdef WIN32
 		FT_SetDataCharacteristics(ftHandle, FT_BITS_8, FT_STOP_BITS_1,
 		    FT_PARITY_NONE);
@@ -2892,13 +2909,11 @@ txfile(void)
 		/* Start of binary transfer marker */
 		async_send_uint8(255);
 
-		if (cable_hw == CABLE_HW_USB && bootaddr >= 0x80000000) {
-			async_send_uint8(0x80);	/* CMD: set base */
-			async_send_uint32(3000000);
-			async_send_uint8(0xb0);	/* CMD: set baudrate */
-			ms_sleep(50);
-			async_set_baudrate(3000000);
-		}
+		async_send_uint8(0x80);	/* CMD: set base */
+		async_send_uint32(xbauds);
+		async_send_uint8(0xb0);	/* CMD: set baudrate */
+		ms_sleep(50);
+		async_set_baudrate(xbauds);
 	}
 
 	i = bauds / 300;
@@ -3017,13 +3032,11 @@ txfile(void)
 	if (tx_success == 0)
 		fprintf(stderr, "TX error at %08x\n", base);
 	else if (tx_binary) {
-		if (cable_hw == CABLE_HW_USB && bootaddr >= 0x80000000) {
-			async_send_uint8(0x80);	/* CMD: set base */
-			async_send_uint32(bauds);
-			async_send_uint8(0xb0);	/* CMD: set baudrate */
-			ms_sleep(50);
-			async_set_baudrate(bauds);
-		}
+		async_send_uint8(0x80);	/* CMD: set base */
+		async_send_uint32(bauds);
+		async_send_uint8(0xb0);	/* CMD: set baudrate */
+		ms_sleep(50);
+		async_set_baudrate(bauds);
 
 		async_send_uint8(0x80);	/* CMD: set base */
 		async_send_uint32(bootaddr);
@@ -3862,9 +3875,9 @@ main(int argc, char *argv[])
 #endif
 
 #ifdef WIN32
-#define OPTS	"qtdj:b:p:P:a:e:D:rs:w"
+#define OPTS	"qtdj:b:p:x:p:P:a:e:D:rs:w"
 #else
-#define OPTS	"qtdj:b:p:P:a:e:D:rs:c:"
+#define OPTS	"qtdj:b:p:x:p:P:a:e:D:rs:c:"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
@@ -3874,6 +3887,9 @@ main(int argc, char *argv[])
 			break;
 		case 'b':
 			bauds = atoi(optarg);
+			break;
+		case 'x':
+			xbauds = atoi(optarg);
 			break;
 #ifdef USE_PPI
 		case 'c':
@@ -3986,14 +4002,19 @@ main(int argc, char *argv[])
 		res = setup_usb();
 		if (res == 0)
 			cable_hw = CABLE_HW_USB;
-		if (cable_hw == CABLE_HW_USB)
+		if (cable_hw == CABLE_HW_USB) {
+			if (xbauds == 0)
+				xbauds = 3000000;
 			break;
+		}
 #ifdef USE_PPI
 	case CABLE_HW_PPI:
 		res = setup_ppi();
 #endif
 		break;
 	case CABLE_HW_COM:
+		if (xbauds == 0)
+			xbauds = bauds;
 #ifdef WIN32
 		sprintf(txbuf, "\\\\.\\%s", com_name);
 		com_port = CreateFile(txbuf,  GENERIC_READ | GENERIC_WRITE, 
@@ -4006,13 +4027,9 @@ main(int argc, char *argv[])
 			fprintf(stderr, "%s is not a COM port\n", com_name);
 			exit(EXIT_FAILURE);
 		}
-		tty.BaudRate = bauds;
-		tty.StopBits = 0;
-		tty.Parity = 0;
-		tty.ByteSize = 8;
-		if (SetCommState(com_port, &tty) == 0 ||
-		    GetCommTimeouts(com_port, &com_to) == 0) {
-			fprintf(stderr, "Can't set baudrate to %d\n", bauds);
+		async_set_baudrate(bauds);
+		if (GetCommTimeouts(com_port, &com_to) == 0) {
+			fprintf(stderr, "Can't configure %s\n", com_port);
 			exit(EXIT_FAILURE);
 		}
 		com_to.ReadIntervalTimeout = 1;
@@ -4026,7 +4043,6 @@ main(int argc, char *argv[])
 			fprintf(stderr, "Can't open %s\n", com_name);
 			exit(EXIT_FAILURE);
 		}
-		cfsetspeed(&tty, bauds);
 		tty.c_cflag &= ~(CSIZE|PARENB);
 		tty.c_cflag |= CS8;
 		tty.c_cflag |= CLOCAL;
@@ -4037,11 +4053,7 @@ main(int argc, char *argv[])
 		tty.c_lflag &= ~(ICANON|ISIG|IEXTEN|ECHO);
 		tty.c_cc[VMIN] = 1;
 		tty.c_cc[VTIME] = 0;
-		res = tcsetattr(com_port, TCSAFLUSH, &tty);
-		if (res) {
-			fprintf(stderr, "Can't set baudrate to %d\n", bauds);
-			exit(EXIT_FAILURE);
-		}
+		async_set_baudrate(bauds);
 		res = fcntl(com_port, F_SETFL, O_NONBLOCK);
 #if defined(__FreeBSD__) || defined(__linux__)
 		/* XXX w/o this a BREAK won't be sent properly on FreeBSD ?!?*/
