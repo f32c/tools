@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.1";
+static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.9";
 
 
 #include <ctype.h>
@@ -355,6 +355,9 @@ static struct cable_hw_map {
 #define	LED_BLINK_RATE		250
 
 #define	BREAK_MS		250
+
+#define	SPI_PAGE_SIZE		256
+#define	SPI_SECTOR_SIZE		(256 * SPI_PAGE_SIZE)
 
 static char *statc = "-\\|/";
 
@@ -2215,66 +2218,146 @@ exec_bit_file(char *path, int jed_target, int debug)
 	idcode += inbuf[i + 6] << 8;
 	idcode += inbuf[i + 7];
 
+	buf_sprintf(op, "STATE IDLE;\n");
+	buf_sprintf(op, "STATE RESET;\n");
 	buf_sprintf(op, "STATE IDLE;\n\n");
 
+	/* IDCODE_PUB(0xE0): check IDCODE */
 	buf_sprintf(op, "SIR	8	TDI	(E0);\n");
 	buf_sprintf(op, "SDR	32	TDI	(00000000)\n");
 	buf_sprintf(op, "	TDO	(%08X)\n", idcode);
 	buf_sprintf(op, "	MASK	(FFFFFFFF);\n\n");
 
+	/* LSC_PRELOAD(0x1C): Program Bscan register */
 	buf_sprintf(op, "SIR	8	TDI	(1C);\n");
 	buf_sprintf(op, "SDR	510	TDI	(3FFFFFFFFFFFFFF"
 	    "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
 	    "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF);\n\n");
 
+	/* ISC ENABLE(0xC6): Enable SRAM programming mode */
 	buf_sprintf(op, "SIR	8	TDI	(C6);\n");
 	buf_sprintf(op, "SDR	8	TDI	(00);\n");
 	buf_sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
 
+	/* ISC ERASE(0x0e): Erase the SRAM */
+	buf_sprintf(op, "SIR	8	TDI	(0e);\n");
+	buf_sprintf(op, "SDR	8	TDI	(01);\n");
+	buf_sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
+
+	/* LSC_READ_STATUS(0x3c) */
 	buf_sprintf(op, "SIR	8	TDI	(3C);\n");
 	buf_sprintf(op, "SDR	32	TDI	(00000000)\n");
 	buf_sprintf(op, "	TDO	(00000000)\n");
 	buf_sprintf(op, "	MASK	(0000B000);\n\n");
 
-	buf_sprintf(op, "SIR	8	TDI	(46);\n");
-	buf_sprintf(op, "SDR	8	TDI	(01);\n");
-	buf_sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
+	if (jed_target == JED_TGT_FLASH) {
+		buf_sprintf(op, "STATE RESET;\n");
+		buf_sprintf(op, "STATE IDLE;\n");
 
-	buf_sprintf(op, "SIR	8	TDI	(7A);\n");
-	buf_sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
+		/* BYPASS(0xFF) */
+		buf_sprintf(op, "SIR	8	TDI(FF);\n");
+		buf_sprintf(op, "RUNTEST IDLE	32 TCK;\n");
+
+		/* LSC_PROG_SPI(0x3A) */
+		buf_sprintf(op, "SIR	8	TDI(3A);\n");
+		buf_sprintf(op, "SDR	16	TDI(68FE);\n");
+		buf_sprintf(op, "RUNTEST IDLE	32 TCK;\n\n");
+
+#if 0
+		/* SPI Flash IDCode Checking */
+		buf_sprintf(op, "SDR 40 TDI(00000000D5)\n");
+		buf_sprintf(op, "	TDO(A8FFFFFFFF)\n"); // A8: M25P32
+		buf_sprintf(op, "	MASK(FF00000000);\n\n");
+#endif
+
+		/* SPI write enable */
+		buf_sprintf(op, "SDR	8	TDI(60);\n\n");
+
+		/* Erase sectors */
+		for (i = 0; i < flen; i += SPI_SECTOR_SIZE) {
+#if 0
+			/* SPI write enable - apparently not really needed */
+			buf_sprintf(op, "SDR	8	TDI(60);\n");
+#endif
+			buf_sprintf(op, "SDR	32	TDI(0000%02x1B);\n",
+			    bitrev(i / SPI_SECTOR_SIZE));
+			buf_sprintf(op, "RUNTEST DRPAUSE 2.50E-01 SEC;\n");
+			buf_sprintf(op, "SDR	16	TDI(00A0)\n");
+			buf_sprintf(op, "	TDO(00FF)\n");
+			buf_sprintf(op, "	MASK(C100);\n\n");
+		}
+
+		/* SPI write disable */
+		buf_sprintf(op, "SDR	8	TDI(20);\n\n");
+
+		row_size = SPI_PAGE_SIZE;
+	} else {
+		/* LSC_INIT_ADDRESS(0x46) */
+		buf_sprintf(op, "SIR	8	TDI	(46);\n");
+		buf_sprintf(op, "SDR	8	TDI	(01);\n");
+		buf_sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
+
+		/* LSC_BITSTREAM_BURST(0x7a) */
+		buf_sprintf(op, "SIR	8	TDI	(7A);\n");
+		buf_sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
+	}
 
 	for (i = 0; i < flen; i += row_size) {
 		n = flen - i;
 		if (n > row_size)
 			n = row_size;
-		buf_sprintf(op, "SDR %d TDI (", n * 8);
+		if (jed_target == JED_TGT_FLASH) {
+			buf_sprintf(op, "SDR	8	TDI(60);\n");
+			buf_sprintf(op, "SDR %d TDI (", n * 8 + 32);
+		} else
+			buf_sprintf(op, "SDR %d TDI (", n * 8);
 		do {
 			n--;
 			op += sprintf(op, "%02X", bitrev(inbuf[i + n]));
 			if (n % hexlen == 0 && n > 0)
 				buf_sprintf(op, "\n\t");
 		} while (n > 0);
-		buf_sprintf(op, ");\n\n");
+		if (jed_target == JED_TGT_FLASH) {
+			buf_sprintf(op, "%02x%02x%02x40);\n\n",
+			    bitrev(i % 256), bitrev((i / 256) % 256),
+			    bitrev((i / 65536) % 256));
+			buf_sprintf(op, "RUNTEST DRPAUSE 2.00E-03 SEC;\n");
+			buf_sprintf(op, "SDR	16	TDI(00A0)\n");
+			buf_sprintf(op, "	TDO(00FF)\n");
+			buf_sprintf(op, "	MASK(C100);\n\n");
+		} else
+			buf_sprintf(op, ");\n\n");
 	}
 	
+	/* BYPASS(0xFF) */
 	buf_sprintf(op, "SIR	8	TDI	(FF);\n");
 	buf_sprintf(op, "RUNTEST IDLE    100 TCK;\n\n");
 
+	/* READ USERCODE(0xC0) */
 	buf_sprintf(op, "SIR	8	TDI	(C0);\n");
 	buf_sprintf(op, "RUNTEST IDLE    2 TCK;\n");
 	buf_sprintf(op, "SDR	32	TDI	(00000000)\n");
 	buf_sprintf(op, "	TDO	(00000000)\n");
 	buf_sprintf(op, "	MASK	(FFFFFFFF);\n\n");
 
+	/* ISC DISABLE(Ox26): exit the programming mode */
 	buf_sprintf(op, "SIR	8	TDI	(26);\n");
 	buf_sprintf(op, "RUNTEST IDLE    2 TCK   2.00E-03 SEC;\n\n");
 	buf_sprintf(op, "SIR	8	TDI	(FF);\n");
 	buf_sprintf(op, "RUNTEST IDLE    2 TCK   1.00E-03 SEC;\n\n");
 
-	buf_sprintf(op, "SIR	8	TDI	(3C);\n");
-	buf_sprintf(op, "SDR	32	TDI	(00000000)\n");
-	buf_sprintf(op, "	TDO	(00000100)\n");
-	buf_sprintf(op, "	MASK	(00002100);\n\n");
+	if (jed_target == JED_TGT_FLASH) {
+		/* LSC_REFRESH(0x79) */
+		buf_sprintf(op, "SIR	8	TDI	(79);\n");
+		buf_sprintf(op, "SDR	24	TDI	(000000);\n");
+		buf_sprintf(op, "RUNTEST IDLE    2 TCK   1.00E-01 SEC;\n\n");
+	} else {
+		/* LSC_READ_STATUS(0x3c): verify status register */
+		buf_sprintf(op, "SIR	8	TDI	(3C);\n");
+		buf_sprintf(op, "SDR	32	TDI	(00000000)\n");
+		buf_sprintf(op, "	TDO	(00000100)\n");
+		buf_sprintf(op, "	MASK	(00002100);\n\n");
+	}
 
 	op--;
 	i = 0;
@@ -2784,7 +2867,14 @@ async_set_baudrate(int speed)
 #endif
 	} else {
 #ifdef WIN32
+		if (GetCommState(com_port, &tty) == 0) {
+			fprintf(stderr, "%s is not a COM port\n", com_name);
+			exit(EXIT_FAILURE);
+		}
 		tty.BaudRate = speed;
+		tty.StopBits = 0;
+		tty.Parity = 0;
+		tty.ByteSize = 8;
 		if (SetCommState(com_port, &tty) == 0) {
 			fprintf(stderr, "Can't set baudrate to %d\n", speed);
 			exit(EXIT_FAILURE);
@@ -4021,10 +4111,6 @@ main(int argc, char *argv[])
 		    0, NULL, OPEN_EXISTING, 0, NULL);
 		if (com_port == INVALID_HANDLE_VALUE) {
 			fprintf(stderr, "Can't open %s\n", com_name);
-			exit(EXIT_FAILURE);
-		}
-		if (GetCommState(com_port, &tty) == 0) {
-			fprintf(stderr, "%s is not a COM port\n", com_name);
 			exit(EXIT_FAILURE);
 		}
 		async_set_baudrate(bauds);
