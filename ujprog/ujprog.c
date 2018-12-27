@@ -389,7 +389,6 @@ static struct cable_hw_map *hmp; /* Selected cable hardware map */
 static FT_HANDLE ftHandle;	/* USB port handle */
 static HANDLE com_port;		/* COM port file */
 static struct _DCB tty;		/* COM port TTY handle */
-static int quick_mode = 1;
 #else
 static struct ftdi_context fc;	/* USB port handle */
 static int com_port;		/* COM port file */
@@ -448,7 +447,7 @@ set_port_mode(int mode)
 	}
 
 #ifdef WIN32
-	if (mode == PORT_MODE_ASYNC && !quick_mode)
+	if (mode == PORT_MODE_ASYNC)
 		mode = PORT_MODE_SYNC;
 #endif
 
@@ -2242,7 +2241,7 @@ exec_bit_file(char *path, int jed_target, int debug)
 	/* ISC ERASE(0x0e): Erase the SRAM */
 	buf_sprintf(op, "SIR	8	TDI	(0e);\n");
 	buf_sprintf(op, "SDR	8	TDI	(01);\n");
-	buf_sprintf(op, "RUNTEST IDLE    2 TCK;\n\n");
+	buf_sprintf(op, "RUNTEST IDLE	32 TCK 1.00E-01 SEC;\n\n");
 
 	/* LSC_READ_STATUS(0x3c) */
 	buf_sprintf(op, "SIR	8	TDI	(3C);\n");
@@ -3964,8 +3963,8 @@ main(int argc, char *argv[])
 	COMMTIMEOUTS com_to;
 #endif
 
-#ifdef WIN32
-#define OPTS	"qtdj:b:p:x:p:P:a:e:D:rs:w"
+#ifndef USE_PPI
+#define OPTS	"qtdj:b:p:x:p:P:a:e:D:rs"
 #else
 #define OPTS	"qtdj:b:p:x:p:P:a:e:D:rs:c:"
 #endif
@@ -4030,11 +4029,6 @@ main(int argc, char *argv[])
 		case 's':
 			svf_name = optarg;
 			break;
-#ifdef WIN32
-		case 'w':
-			quick_mode = 0;
-			break;
-#endif
 		case 't':
 			terminal = 1;
 #ifdef WIN32
