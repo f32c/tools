@@ -2269,15 +2269,11 @@ exec_bit_file(char *path, int jed_target, int debug)
 		buf_sprintf(op, "	MASK(FF00000000);\n\n");
 #endif
 
-		/* SPI write enable */
-		buf_sprintf(op, "SDR	8	TDI(60);\n\n");
-
 		/* Erase sectors */
 		for (i = 0; i < flen; i += SPI_SECTOR_SIZE) {
-#if 0
-			/* SPI write enable - apparently not really needed */
+			/* SPI write enable */
 			buf_sprintf(op, "SDR	8	TDI(60);\n");
-#endif
+
 			buf_sprintf(op, "SDR	32	TDI(0000%02x1B);\n",
 			    bitrev(i / SPI_SECTOR_SIZE));
 			buf_sprintf(op, "RUNTEST DRPAUSE 2.50E-01 SEC;\n");
