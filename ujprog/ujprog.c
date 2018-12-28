@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.9";
+static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.91";
 
 
 #include <ctype.h>
@@ -2174,7 +2174,7 @@ exec_bit_file(char *path, int jed_target, int debug)
 	FILE *fd;
 	long flen, got;
 	uint32_t idcode;
-	int i, n;
+	int i, j, n;
 	int row_size = 64000 / 8;
 	int hexlen = 50;
 	int res;
@@ -2302,6 +2302,13 @@ exec_bit_file(char *path, int jed_target, int debug)
 		if (n > row_size)
 			n = row_size;
 		if (jed_target == JED_TGT_FLASH) {
+			/* Skip write if all bits set in a block */
+			for (j = 0; j < n; j++)
+				if (inbuf[i + j] != 0xff)
+					break;
+			if (j == n)
+				continue;
+
 			buf_sprintf(op, "SDR	8	TDI(60);\n");
 			buf_sprintf(op, "SDR %d TDI (", n * 8 + 32);
 		} else
@@ -2669,7 +2676,8 @@ prog(char *fname, int target, int debug)
 	}
 	if (strcasecmp(&fname[c], ".jed") == 0)
 		res = exec_jedec_file(fname, target, debug);
-	else if (strcasecmp(&fname[c], ".bit") == 0)
+	else if (strcasecmp(&fname[c], ".bit") == 0 ||
+	    (strcasecmp(&fname[c], ".img") == 0 && target == JED_TGT_FLASH))
 		res = exec_bit_file(fname, target, debug);
 	else if (strcasecmp(&fname[c], ".svf") == 0)
 		res = exec_svf_file(fname, debug);
