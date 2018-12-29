@@ -2204,28 +2204,35 @@ exec_bit_file(char *path, int jed_target, int debug)
 		return (EXIT_FAILURE);
 	}
 
-	for (i = 0; i < flen - 4; i++)
-		if (inbuf[i] == 0xe2 && inbuf[i + 1] == 0
-		    && inbuf[i + 2] == 0 && inbuf[i + 3] == 0)
-			break;
-	if (inbuf[i] != 0xe2) {
-		fprintf(stderr, "can't find IDCODE, invalid bitstream\n");
-		return (EXIT_FAILURE);
-	}
-	idcode = inbuf[i + 4] << 24;
-	idcode += inbuf[i + 5] << 16;
-	idcode += inbuf[i + 6] << 8;
-	idcode += inbuf[i + 7];
-
 	buf_sprintf(op, "STATE IDLE;\n");
 	buf_sprintf(op, "STATE RESET;\n");
 	buf_sprintf(op, "STATE IDLE;\n\n");
 
-	/* IDCODE_PUB(0xE0): check IDCODE */
-	buf_sprintf(op, "SIR	8	TDI	(E0);\n");
-	buf_sprintf(op, "SDR	32	TDI	(00000000)\n");
-	buf_sprintf(op, "	TDO	(%08X)\n", idcode);
-	buf_sprintf(op, "	MASK	(FFFFFFFF);\n\n");
+	if (strcasecmp(&path[strlen(path) - 4], ".img") != 0) {
+		/* Search for bitstream preamble and IDCODE markers */
+		for (i = 0, j = 0; i < flen - 32 && i < 2000; i++)
+			if (inbuf[i] == 0xbd && inbuf[i + 1] == 0xb3
+			    && inbuf[i + 10] == 0xe2 && inbuf[i + 11] == 0
+			    && inbuf[i + 12] == 0 && inbuf[i + 13] == 0) {
+				j = i;
+				break;
+			}
+		if (j == 0) {
+			fprintf(stderr,
+			    "can't find IDCODE, invalid bitstream\n");
+			return (EXIT_FAILURE);
+		}
+		idcode = inbuf[i + 14] << 24;
+		idcode += inbuf[i + 15] << 16;
+		idcode += inbuf[i + 16] << 8;
+		idcode += inbuf[i + 17];
+
+		/* IDCODE_PUB(0xE0): check IDCODE */
+		buf_sprintf(op, "SIR	8	TDI	(E0);\n");
+		buf_sprintf(op, "SDR	32	TDI	(00000000)\n");
+		buf_sprintf(op, "	TDO	(%08X)\n", idcode);
+		buf_sprintf(op, "	MASK	(FFFFFFFF);\n\n");
+	}
 
 	/* LSC_PRELOAD(0x1C): Program Bscan register */
 	buf_sprintf(op, "SIR	8	TDI	(1C);\n");
@@ -2334,13 +2341,6 @@ exec_bit_file(char *path, int jed_target, int debug)
 	/* BYPASS(0xFF) */
 	buf_sprintf(op, "SIR	8	TDI	(FF);\n");
 	buf_sprintf(op, "RUNTEST IDLE    100 TCK;\n\n");
-
-	/* READ USERCODE(0xC0) */
-	buf_sprintf(op, "SIR	8	TDI	(C0);\n");
-	buf_sprintf(op, "RUNTEST IDLE    2 TCK;\n");
-	buf_sprintf(op, "SDR	32	TDI	(00000000)\n");
-	buf_sprintf(op, "	TDO	(00000000)\n");
-	buf_sprintf(op, "	MASK	(FFFFFFFF);\n\n");
 
 	/* ISC DISABLE(Ox26): exit the programming mode */
 	buf_sprintf(op, "SIR	8	TDI	(26);\n");
