@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.91";
+static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.92";
 
 
 #include <ctype.h>
@@ -382,7 +382,8 @@ static int txfu_ms;		/* txt file upload character delay (ms) */
 static int tx_binary;		/* send in raw (0) or binary (1) format */
 static const char *txfname;	/* file to send */
 static const char *com_name;	/* COM / TTY port name for -a or -t */
-static int global_debug = 0;
+static int spi_addr;		/* Base address for -j flash programming */
+static int global_debug;
 
 static struct cable_hw_map *hmp; /* Selected cable hardware map */
 #ifdef WIN32
@@ -2174,7 +2175,7 @@ exec_bit_file(char *path, int jed_target, int debug)
 	FILE *fd;
 	long flen, got;
 	uint32_t idcode;
-	int i, j, n;
+	int i, j, n, addr;
 	int row_size = 64000 / 8;
 	int hexlen = 50;
 	int res;
@@ -2269,20 +2270,15 @@ exec_bit_file(char *path, int jed_target, int debug)
 		buf_sprintf(op, "SDR	16	TDI(68FE);\n");
 		buf_sprintf(op, "RUNTEST IDLE	32 TCK;\n\n");
 
-#if 0
-		/* SPI Flash IDCode Checking */
-		buf_sprintf(op, "SDR 40 TDI(00000000D5)\n");
-		buf_sprintf(op, "	TDO(A8FFFFFFFF)\n"); // A8: M25P32
-		buf_sprintf(op, "	MASK(FF00000000);\n\n");
-#endif
-
 		/* Erase sectors */
 		for (i = 0; i < flen; i += SPI_SECTOR_SIZE) {
+			addr = i + spi_addr;
+
 			/* SPI write enable */
 			buf_sprintf(op, "SDR	8	TDI(60);\n");
 
 			buf_sprintf(op, "SDR	32	TDI(0000%02x1B);\n",
-			    bitrev(i / SPI_SECTOR_SIZE));
+			    bitrev(addr / SPI_SECTOR_SIZE));
 			buf_sprintf(op, "RUNTEST DRPAUSE 2.50E-01 SEC;\n");
 			buf_sprintf(op, "SDR	16	TDI(00A0)\n");
 			buf_sprintf(op, "	TDO(00FF)\n");
@@ -2327,9 +2323,11 @@ exec_bit_file(char *path, int jed_target, int debug)
 				buf_sprintf(op, "\n\t");
 		} while (n > 0);
 		if (jed_target == JED_TGT_FLASH) {
+			addr = i + spi_addr;
+
 			buf_sprintf(op, "%02x%02x%02x40);\n\n",
-			    bitrev(i % 256), bitrev((i / 256) % 256),
-			    bitrev((i / 65536) % 256));
+			    bitrev(addr % 256), bitrev((addr / 256) % 256),
+			    bitrev((addr / 65536) % 256));
 			buf_sprintf(op, "RUNTEST DRPAUSE 2.00E-03 SEC;\n");
 			buf_sprintf(op, "SDR	16	TDI(00A0)\n");
 			buf_sprintf(op, "	TDO(00FF)\n");
@@ -2584,6 +2582,8 @@ usage(void)
 #endif
 	printf("  -j TARGET	Select bitstream TARGET as SRAM (default)"
 	    " or FLASH (XP2 only)\n");
+	printf("  -f ADDR	Start writing to SPI flash at ADDR, "
+	    "optional with -j flash\n");
 	printf("  -s FILE	Convert bitstream to SVF FILE and exit\n");
 	printf("  -r		Reload FPGA configuration from"
 	    " internal Flash (XP2 only)\n");
@@ -2593,7 +2593,7 @@ usage(void)
 	    " bauds)\n");
 	printf("  -e FILE	Send and execute a f32c (MIPS/RISCV) binary "
 	    "FILE\n");
-	printf("  -x SPEED	Set binary transfer speed\n");
+	printf("  -x SPEED	Set binary transfer speed, optional with -e\n");
 	printf("  -a FILE	Send a raw FILE\n");
 	printf("  -d 		debug (verbose)\n");
 	printf("  -D DELAY	Delay transmission of each byte by"
@@ -3968,9 +3968,9 @@ main(int argc, char *argv[])
 #endif
 
 #ifndef USE_PPI
-#define OPTS	"qtdj:b:p:x:p:P:a:e:D:rs"
+#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rs"
 #else
-#define OPTS	"qtdj:b:p:x:p:P:a:e:D:rs:c:"
+#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rsc:"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
@@ -4014,6 +4014,21 @@ main(int argc, char *argv[])
 				jed_target = JED_TGT_FLASH;
 			else {
 				usage();
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'f':
+			if (optarg[0] == '0' && optarg[1] == 'x')
+				sscanf(&optarg[2], "%x", &spi_addr);
+			else if (isdigit(*optarg))
+				spi_addr = atoi(optarg);
+			else {
+				printf("Invalid address format\n");
+				exit(EXIT_FAILURE);
+			}
+			if ((spi_addr & (SPI_SECTOR_SIZE - 1)) != 0) {
+				printf("SPI address must be a multiple of %d\n",
+				    SPI_SECTOR_SIZE);
 				exit(EXIT_FAILURE);
 			}
 			break;
@@ -4081,6 +4096,12 @@ main(int argc, char *argv[])
 	if (com_name && cable_hw != CABLE_HW_COM) {
 		fprintf(stderr, "error: "
 		    "options -P and -c are mutualy exclusive\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (spi_addr && jed_target != JED_TGT_FLASH) {
+		fprintf(stderr, "error: "
+		    "-f may be specified only with -j flash\n");
 		exit(EXIT_FAILURE);
 	}
 
