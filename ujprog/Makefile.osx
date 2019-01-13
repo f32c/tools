@@ -1,22 +1,19 @@
+CFLAGS += -Wall `pkg-config --cflags libusb libftdi`
+LDFLAGS += `pkg-config --libs libusb libftdi`
 
-SRCS = ujprog.c
-CFLAGS += -Wall
-FTLIB = `libftdi1-config  --libs` `libftdi1-config  --cflags`
-USBLIB = -lusb-1.0
+# Install libusb-compat, libftdi0, pkg-config with 'brew install libusb-compat libftdi0 pkg-config'
 
-# Install libusb and libftdi with 'brew install libusb libftdi'
+ujprog:	ujprog.c
+	${CC} ${CFLAGS} $^ ${LDFLAGS} -o $@
 
-ujprog:	${SRCS}
-	${CC} ${CFLAGS} ${SRCS} ${FTLIB} ${USBLIB} -o ujprog
-
-flash:	ft232r_flash.c
-	${CC} ${CFLAGS} -lusb ft232r_flash.c ${FTLIB} -o ft232r_flash
+flash: ft232r_flash.c
+	${CC} ${CFLAGS} $^ ${LDFLAGS} -lusb -o $@
 
 install: ujprog
 	install -m 4755 ujprog /usr/local/bin
 
 clean:
-	rm -f ujprog ujprog.o *~
+	rm -f ujprog flash
 
 depend:
 	mkdep ${INCLUDES} ${SRCS}
