@@ -81,6 +81,8 @@ static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.92";
 #define	BITMODE_BITBANG		0x1
 #define	BITMODE_SYNCBB		0x4
 #define	BITMODE_CBUS		0x20
+#undef EOPNOTSUPP
+#define EOPNOTSUPP      WSAEOPNOTSUPP  /* Operation not supported */
 #endif
 
 /* Forward declarations */
