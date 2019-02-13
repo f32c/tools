@@ -74,11 +74,11 @@ See https://www.ftdichip.com/Drivers/CDM/CDM%20v2.12.28%20WHQL%20Certified.zip o
 
 I copied the FTDI zip file: 
 
-	`CDM v2.12.28 WHQL Certified\ftd2xx.h` to ./`ftd2xx.h`
-	`CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib` to repo ./`ftd2xx.lib`
-	`CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib` to repo ./`ftd2xx.amd64.lib`
+* `CDM v2.12.28 WHQL Certified\ftd2xx.h` to ./`ftd2xx.h`
+* `CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib` to repo ./`ftd2xx.lib`
+* `CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib` to repo ./`ftd2xx.amd64.lib`
 
-Compiling with x86_64-w64-mingw32-gcc results in this error `ftd2xx.lib` (32 bit vs 64 bit conflict):
+Compiling with `x86_64-w64-mingw32-gcc` results in this incompatibility error for `ftd2xx.lib` (32 bit vs 64 bit conflict):
 
 ```
 $ make -f Makefile.ming32_64
