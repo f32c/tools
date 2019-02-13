@@ -30,7 +30,8 @@ Unless regularly compiling for different targets, consider copying the respectiv
 `make -f Makefile.bsd`
 
 
-## Linux (including WSL Ubuntu, but reminder there's no WSL support for USB devices, only tty!)
+## Linux 
+including WSL Ubuntu, but reminder there's no WSL support for USB devices, only tty!
 
 `make -f Makefile.linux`
 
@@ -61,10 +62,7 @@ Note this uses the 64bit ftd2xx.amd64.lib (CDM v2.12.28 WHQL Certified\amd64\ftd
 `make -f Makefile.ming32_64`
 
 
-
-
-
-#Changes by gojimmypi Feb 13 2019:
+# Changes by gojimmypi Feb 13 2019:
 
 Added this README.md
 
@@ -72,13 +70,13 @@ Microsoft dumpbin reports 51E00677 time/date Fri Jul 12 06:36:55 2013 for curren
 
 The most recent `ftd2xx.lib` in 2.12.28 is 599AE440 time/date Mon Aug 21 06:46:40 2017
 
-See https://www.ftdichip.com/Drivers/CDM/CDM%20v2.12.28%20WHQL%20Certified.zip
+See https://www.ftdichip.com/Drivers/CDM/CDM%20v2.12.28%20WHQL%20Certified.zip on https://www.ftdichip.com/Drivers/D2XX.htm
 
 I copied the FTDI zip file: CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib to repo ./`ftd2xx.lib`
 
 I copied the FTDI zip file: CDM v2.12.28 WHQL Certified\ftd2xx.h to ./`ftd2xx.h`
 
-Compiling with x86_64-w64-mingw32-gcc results in this error `ftd2xx.lib`:
+Compiling with x86_64-w64-mingw32-gcc results in this error `ftd2xx.lib` (32 bit vs 64 bit conflict):
 
 ```
 $ make -f Makefile.ming32_64
@@ -91,8 +89,8 @@ Makefile.ming32_64:26: recipe for target 'ujprog.exe' failed
 make: *** [ujprog.exe] Error 1
 ```
 
-So I created Makefile.ming32_64 and added the 64-bit (not static) version (CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib) as ftd2xx.amd64.lib
+So I created `Makefile.ming32_64` and added the 64-bit (not static) version (`CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib`) as `ftd2xx.amd64.lib`
 
-I also added Makefile.ming32 to compile with i686-w64-mingw32 but I could not test this.
+I also added a `Makefile.ming32` to compile with `i686-w64-mingw32` but I could not test this.
 
 
