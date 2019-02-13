@@ -48,16 +48,16 @@ including WSL Ubuntu, but reminder there's no WSL support for USB devices, only 
 
 ## MinGW (32 bit)
 
-complied with i686-w64-mingw32; this uses the same ftd2xx.lib as used for linux (CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib)
+complied with `i686-w64-mingw32`; this uses the same `ftd2xx.lib` as used for linux (CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib)
 
 `make -f Makefile.ming32`
 
 
 ## MinGW (64 bit)
 
-compiled with x86_64-w64-mingw32-gcc (installed with `sudo apt-get install mingw-w64`)
+compiled with `x86_64-w64-mingw32-gcc` (installed with `sudo apt-get install mingw-w64`)
 
-Note this uses the 64bit ftd2xx.amd64.lib (CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib)
+Note this uses the 64bit `ftd2xx.amd64.lib` (`CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib`)
 
 `make -f Makefile.ming32_64`
 
@@ -72,9 +72,11 @@ The most recent `ftd2xx.lib` in 2.12.28 is 599AE440 time/date Mon Aug 21 06:46:4
 
 See https://www.ftdichip.com/Drivers/CDM/CDM%20v2.12.28%20WHQL%20Certified.zip on https://www.ftdichip.com/Drivers/D2XX.htm
 
-I copied the FTDI zip file: CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib to repo ./`ftd2xx.lib`
+I copied the FTDI zip file: 
 
-I copied the FTDI zip file: CDM v2.12.28 WHQL Certified\ftd2xx.h to ./`ftd2xx.h`
+	`CDM v2.12.28 WHQL Certified\ftd2xx.h` to ./`ftd2xx.h`
+	`CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib` to repo ./`ftd2xx.lib`
+	`CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib` to repo ./`ftd2xx.amd64.lib`
 
 Compiling with x86_64-w64-mingw32-gcc results in this error `ftd2xx.lib` (32 bit vs 64 bit conflict):
 
