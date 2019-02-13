@@ -63,6 +63,8 @@ Note this uses the 64bit `ftd2xx.amd64.lib` (`CDM v2.12.28 WHQL Certified\amd64\
 
 # NOTE on Windows Drivers
 
+The JTAG features of this ujprog cannot be used concurrently with OpenOCD.
+
 In order to use OpenOCD with the ULX3S, the `libusbK` dirvers are needed. One way of manually changing the drivers is to use [Zadig](https://zadig.akeo.ie/). The problem with using the `libusbK` drivers is that this ujprog will no longer work, as it needs the FTDI drivers.
 
 ## Change ULX3S Driver to libusbK using Zadig
@@ -78,10 +80,21 @@ Launch Zadig and click on `Options - List all Devices`.  Select the ULC3S device
 
 The FTDI drivers should already be installed. If so, Windows will automatically use these drivers when a new ULXS3 is plugged in. If the FTDI Drivers are not installed, they can be downloaded from https://www.ftdichip.com/Drivers/D2XX.htm (the setup executable noted in the comments column may be the easiest way to install the drivers). 
 
+The ULX3S is using the libusbK drivers if it shows up in Device Manager - libusbK USB Devices. (typically when using OpenOCD)
 
+![ULX3S-as-libusbK-device](https://raw.githubusercontent.com/gojimmypi/f32c_tools/master/ujprog/images/ULX3S-as-libusbK-device.PNG)
 
+To remove the libusbK drivers, right click on your ULX3S device in Device Manager and select `Uninstall Device`:
 
+![Uninstall-libusbK-device](https://raw.githubusercontent.com/gojimmypi/f32c_tools/master/ujprog/images/Uninstall-libusbK-device.PNG)
 
+Then click the Uninstall button (don't check the box unless you want to actually uninstall the drivers from Windows and then reinstall the drivers later; we are only uninstalling the device):
+
+![Uninstall-libusbK-device-step2](https://raw.githubusercontent.com/gojimmypi/f32c_tools/master/ujprog/images/Uninstall-libusbK-device-step2.PNG)
+
+After clicking the Uninstall button, `Device Manager` may flicker a bit, but no message is typically shown. If the device was removed it will no longer be visible. If there are no other libusbK devices, then then entire `libusbK USB Devices` container will also be gone.
+
+To complete the process of installing the FDTI drivers: Unplug the ULX3S, wait 30 seconds and plug it back in. Windows should automatically use the FTDI drivers and a new COM port will appear in `Device Manager - Ports (COM & LPT)` as shown above.
 
 # Changes by gojimmypi Feb 13 2019:
 
