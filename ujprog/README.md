@@ -61,6 +61,27 @@ Note this uses the 64bit `ftd2xx.amd64.lib` (`CDM v2.12.28 WHQL Certified\amd64\
 
 `make -f Makefile.ming32_64`
 
+# NOTE on Windows Drivers
+
+In order to use OpenOCD with the ULX3S, the `libusbK` dirvers are needed. One way of manually changing the drivers is to use [Zadig](https://zadig.akeo.ie/). The problem with using the `libusbK` drivers is that this ujprog will no longer work, as it needs the FTDI drivers.
+
+## Change ULX3S Driver to libusbK using Zadig
+The ULX3S is using the FTDI drivers if it shows up in the Device Manager - Ports (COM & LPT)
+
+![ULX3S-as-FTDI-device](https://github.com/gojimmypi/f32c_tools/raw/master/ujprog/images/ULX3S-as-FTDI-device.PNG)
+
+Launch Zadig and click on `Options - List all Devices`.  Select the ULC3S device from the dropdown
+
+![Zadig-FTDI-to-libusbK](https://github.com/gojimmypi/f32c_tools/raw/master/ujprog/images/Zadig-FTDI-to-libusbK.PNG)
+
+## Change ULX3S Driver to FTDI 
+
+The FTDI drivers should already be installed. If so, Windows will automatically use these drivers when a new ULXS3 is plugged in. If the FTDI Drivers are not installed, they can be downloaded from https://www.ftdichip.com/Drivers/D2XX.htm (the setup executable noted in the comments column may be the easiest way to install the drivers). 
+
+
+
+
+
 
 # Changes by gojimmypi Feb 13 2019:
 
