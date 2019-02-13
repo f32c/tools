@@ -46,14 +46,16 @@ including WSL Ubuntu, but reminder there's no WSL support for USB devices, only 
 `make -f Makefile.win`
 
 
-## MinGW (32 bit)
+## MinGW (Windows 32 bit targe exe; cross compiled from linux)
+
+TODO: how to get 32 bit mingw environment?
 
 complied with `i686-w64-mingw32`; this uses the same `ftd2xx.lib` as used for linux (CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib)
 
 `make -f Makefile.ming32`
 
 
-## MinGW (64 bit)
+## MinGW (Windows 64 bit target exe; cross compiled from linux)
 
 compiled with `x86_64-w64-mingw32-gcc` (installed with `sudo apt-get install mingw-w64`)
 
