@@ -21,7 +21,7 @@ Usage: ujprog [option(s)] [bitstream_file]
   -q            Suppress messages
 ```
 
-#Compiling
+# Compiling
 Unless regularly compiling for different targets, consider copying the respective `Makefile.[target]` to your `Makefile`.
 
 
