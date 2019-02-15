@@ -1,9 +1,15 @@
 
 SRCS = ujprog.c
-CFLAGS += -Wall -D__linux__  -static
-FTLIB = /usr/lib/`uname -m`-linux-gnu/libftdi.a
+CFLAGS += -Wall -D__linux__ -std=gnu99 -static
+
+# for linux on PC (i386/amd64)
+ARCHNAME = $(shell uname -m)-linux-gnu
+# for linux on raspberrypi-3
+# ARCHNAME = arm-linux-gnueabihf
+
+FTLIB = /usr/lib/${ARCHNAME}/libftdi.a
 #FTLIB = -lftdi
-USBLIB = /usr/lib/`uname -m`-linux-gnu/libusb.a
+USBLIB = /usr/lib/${ARCHNAME}/libusb.a
 
 ujprog:	${SRCS}
 	${CC} ${CFLAGS} ${SRCS} ${FTLIB} ${USBLIB} -o ujprog
