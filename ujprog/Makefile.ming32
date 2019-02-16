@@ -25,7 +25,7 @@ all: all-before ujprog.exe all-after
 
 
 clean: clean-custom
-	${RM} $(OBJ) $(BIN) $(FTDI_LIB_UNZIPPED).lib # $(FTDI_ZIP_FILE)
+	${RM} $(OBJ) $(BIN) $(FTDI_LIB_UNZIPPED).lib $(FTDI_ZIP_FILE)
 
 $(FTDI_ZIP_FILE):
 	wget -c $(FTDI_ZIP_URL) -O ftdi.zip
