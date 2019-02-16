@@ -48,9 +48,14 @@ including WSL Ubuntu, but reminder there's no WSL support for USB devices, only 
 
 ## MinGW (Windows 32 bit targe exe; cross compiled from linux)
 
-TODO: how to get 32 bit mingw environment?
+To get 32-bit environment on debian while running on 64-bit linux
+you maybe need first enable multiarch (but I'm not sure if this is really
+necessary)
 
-complied with `i686-w64-mingw32`; this uses the same `ftd2xx.lib` as used for linux (CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib)
+`dpkg --add-architecture i386`
+`apt-get update`
+
+compiled with `i686-w64-mingw32-gcc` (installed with `apt-get install gcc-mingw-w64`); this uses the same `ftd2xx.lib` as used for linux (CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib)
 
 `make -f Makefile.ming32`
 
@@ -62,6 +67,7 @@ compiled with `x86_64-w64-mingw32-gcc` (installed with `sudo apt-get install min
 Note this uses the 64bit `ftd2xx.amd64.lib` (`CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib`)
 
 `make -f Makefile.ming32_64`
+
 
 # NOTE on Windows Drivers
 
