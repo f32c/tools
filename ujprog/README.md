@@ -54,7 +54,7 @@ Edit Makefile.linux and enable this:
 `make -f Makefile.win`
 
 
-## MinGW (Windows 32 bit targe exe; cross compiled from linux)
+## MinGW (Windows 32 bit target exe; cross compiled from linux)
 
 To get 32-bit environment on debian while running on 64-bit linux
 it might be useful to enable multiarch
