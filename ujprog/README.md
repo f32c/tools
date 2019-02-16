@@ -30,8 +30,16 @@ Unless regularly compiling for different targets, consider copying the respectiv
 `make -f Makefile.bsd`
 
 
-## Linux 
+## Linux PC (i386/amd64)
 including WSL Ubuntu, but reminder there's no WSL support for USB devices, only tty!
+
+`make -f Makefile.linux`
+
+
+## Linux RaspberryPI-3 (armhf)
+
+Edit Makefile.linux and enable this:
+`ARCHNAME = arm-linux-gnueabihf`
 
 `make -f Makefile.linux`
 
