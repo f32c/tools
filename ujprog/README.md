@@ -143,8 +143,11 @@ I copied the FTDI zip file:
 * `CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib` to repo ./`ftd2xx.lib`
 * `CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib` to repo ./`ftd2xx.amd64.lib`
 
-So I created `Makefile.ming32_64` and added the 64-bit (not static) version (`CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib`) as `ftd2xx.amd64.lib`
+So I created `Makefile.ming32` and `Makefile.ming32_64` and added rule to
+automatically download (`CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib`) and unzip
+required library to link i386/amd64 exe.
 
-I also added a `Makefile.ming32` to compile with `i686-w64-mingw32-gcc` but I could not test this.
+`Makefile.ming32` compiles with `i686-w64-mingw32-gcc` but it's not yet
+tested.
 
 
