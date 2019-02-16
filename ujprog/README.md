@@ -61,6 +61,7 @@ it might be useful to enable multiarch
 (but I'm not sure if this is really necessary)
 
 `dpkg --add-architecture i386`
+
 `apt-get update`
 
 compiled with `i686-w64-mingw32-gcc` (installed with `apt-get install gcc-mingw-w64`); this uses the same `ftd2xx.lib` as used for linux (CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib)
