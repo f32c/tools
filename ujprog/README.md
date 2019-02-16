@@ -22,7 +22,14 @@ Usage: ujprog [option(s)] [bitstream_file]
 ```
 
 # Compiling
-Unless regularly compiling for different targets, consider copying the respective `Makefile.[target]` to your `Makefile`.
+
+Unless regularly compiling for different targets, consider copying or
+symlinking the respective `Makefile.[target]` to your `Makefile` and
+use just "make" to compile, for example
+
+`ln -s Makefile.linux Makefile`
+
+`make`
 
 
 ## BSD
@@ -150,6 +157,6 @@ make: *** [ujprog.exe] Error 1
 
 So I created `Makefile.ming32_64` and added the 64-bit (not static) version (`CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib`) as `ftd2xx.amd64.lib`
 
-I also added a `Makefile.ming32` to compile with `i686-w64-mingw32` but I could not test this.
+I also added a `Makefile.ming32` to compile with `i686-w64-mingw32-gcc` but I could not test this.
 
 
