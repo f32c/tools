@@ -49,8 +49,8 @@ including WSL Ubuntu, but reminder there's no WSL support for USB devices, only 
 ## MinGW (Windows 32 bit targe exe; cross compiled from linux)
 
 To get 32-bit environment on debian while running on 64-bit linux
-you maybe need first enable multiarch (but I'm not sure if this is really
-necessary)
+it might be useful to enable multiarch
+(but I'm not sure if this is really necessary)
 
 `dpkg --add-architecture i386`
 `apt-get update`
