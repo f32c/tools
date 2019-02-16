@@ -89,7 +89,7 @@ The ULX3S is using the FTDI drivers if it shows up in the Device Manager - Ports
 
 ![ULX3S-as-FTDI-device](https://github.com/gojimmypi/f32c_tools/raw/master/ujprog/images/ULX3S-as-FTDI-device.PNG)
 
-Launch Zadig and click on `Options - List all Devices`.  Select the ULC3S device from the dropdown:
+Launch Zadig and click on `Options - List all Devices`.  Select the ULX3S device from the dropdown:
 
 ![Zadig-FTDI-to-libusbK](https://github.com/gojimmypi/f32c_tools/raw/master/ujprog/images/Zadig-FTDI-to-libusbK.PNG)
 
