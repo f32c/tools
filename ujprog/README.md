@@ -137,15 +137,9 @@ The most recent `ftd2xx.lib` in 2.12.28 is 599AE440 time/date Mon Aug 21 06:46:4
 
 See https://www.ftdichip.com/Drivers/CDM/CDM%20v2.12.28%20WHQL%20Certified.zip on https://www.ftdichip.com/Drivers/D2XX.htm
 
-I copied the FTDI zip file: 
-
-* `CDM v2.12.28 WHQL Certified\ftd2xx.h` to ./`ftd2xx.h`
-* `CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib` to repo ./`ftd2xx.lib`
-* `CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib` to repo ./`ftd2xx.amd64.lib`
-
-So I created `Makefile.ming32` and `Makefile.ming32_64` and added rule to
+`Makefile.ming32` and `Makefile.ming32_64` have a rule to
 automatically download (`CDM v2.12.28 WHQL Certified.zip`) and unzip
-required library to link i386/amd64 exe.
+library required to link i386/amd64 exe.
 
 `Makefile.ming32` compiles with `i686-w64-mingw32-gcc` but it's not yet
 tested.
