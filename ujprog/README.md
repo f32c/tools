@@ -46,7 +46,7 @@ Edit Makefile.linux and enable this:
 
 ## OSX
 
-`make -f Makefile.linux`
+`make -f Makefile.osx`
 
 
 ## Windows
