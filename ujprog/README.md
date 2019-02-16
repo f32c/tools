@@ -143,19 +143,6 @@ I copied the FTDI zip file:
 * `CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib` to repo ./`ftd2xx.lib`
 * `CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib` to repo ./`ftd2xx.amd64.lib`
 
-Compiling with `x86_64-w64-mingw32-gcc` results in this incompatibility error for `ftd2xx.lib` (32 bit vs 64 bit conflict):
-
-```
-$ make -f Makefile.ming32_64
-x86_64-w64-mingw32-gcc ujprog.o  -lftd2xx -o "ujprog.exe" -s -static -L. -lftd2xx.amd64.lib
-/usr/bin/x86_64-w64-mingw32-ld: skipping incompatible ./ftd2xx.lib when searching for -lftd2xx
-/usr/bin/x86_64-w64-mingw32-ld: cannot find -lftd2xx
-/usr/bin/x86_64-w64-mingw32-ld: cannot find -lftd2xx.amd64.lib
-collect2: error: ld returned 1 exit status
-Makefile.ming32_64:26: recipe for target 'ujprog.exe' failed
-make: *** [ujprog.exe] Error 1
-```
-
 So I created `Makefile.ming32_64` and added the 64-bit (not static) version (`CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib`) as `ftd2xx.amd64.lib`
 
 I also added a `Makefile.ming32` to compile with `i686-w64-mingw32-gcc` but I could not test this.
