@@ -38,6 +38,7 @@ use just "make" to compile, for example
 
 
 ## Linux PC (i386/amd64)
+Native linux Debian/Ubuntu, maybe many others too,
 including WSL Ubuntu, but reminder there's no WSL support for USB devices, only tty!
 
 `make -f Makefile.linux`
