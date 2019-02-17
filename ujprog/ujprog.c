@@ -2581,12 +2581,12 @@ usage(void)
 	printf("  -P TTY	Select TTY port (valid only with -t or -a)\n");
 #endif
 	printf("  -j TARGET	Select bitstream TARGET as SRAM (default)"
-	    " or FLASH (XP2 only)\n");
+	    " or FLASH\n");
 	printf("  -f ADDR	Start writing to SPI flash at ADDR, "
 	    "optional with -j flash\n");
 	printf("  -s FILE	Convert bitstream to SVF FILE and exit\n");
 	printf("  -r		Reload FPGA configuration from"
-	    " internal Flash (XP2 only)\n");
+	    " FLASH\n");
 	printf("  -t		Enter terminal emulation mode after"
 	    " completing JTAG operations\n");
 	printf("  -b SPEED	Set baudrate to SPEED (300 to 3000000"
