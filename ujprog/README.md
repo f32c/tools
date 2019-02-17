@@ -77,7 +77,7 @@ compiled with `i686-w64-mingw32-gcc` (installed with `apt-get install gcc-mingw-
 `make -f Makefile.ming32`
 
 You may need to disable windows security block
-![windows security block](/images/securityblock.png)
+![windows security block](/ujprog/images/securityblock.png)
 
 
 ## MinGW (Windows 64 bit target exe; cross compiled from linux)
@@ -98,15 +98,15 @@ In order to use OpenOCD with the ULX3S, the `libusbK` dirvers are needed. One wa
 ## Change ULX3S Driver to libusbK using Zadig
 The ULX3S is using the FTDI drivers if it shows up in the Device Manager - Ports (COM & LPT)
 
-![ULX3S-as-FTDI-device](/images/ULX3S-as-FTDI-device.PNG)
+![ULX3S-as-FTDI-device](/ujprog/images/ULX3S-as-FTDI-device.PNG)
 
 Launch Zadig and click on `Options - List all Devices`.  Select the ULX3S device from the dropdown:
 
-![Zadig-FTDI-to-libusbK](/images/Zadig-FTDI-to-libusbK.PNG)
+![Zadig-FTDI-to-libusbK](/ujprog/images/Zadig-FTDI-to-libusbK.PNG)
 
 Press the Replace Driver button and after a few moments you should see a message that the drivers were installed successfully:
 
-![Zadig-success](/images/Zadig-success.PNG)
+![Zadig-success](/ujprog/images/Zadig-success.PNG)
 
 The driver change typically works immediately and no reboot is needed.
 
@@ -116,15 +116,15 @@ The FTDI drivers should already be installed. If so, Windows will automatically 
 
 The ULX3S is using the libusbK drivers if it shows up in Device Manager - libusbK USB Devices. (typically when using OpenOCD)
 
-![ULX3S-as-libusbK-device](/images/ULX3S-as-libusbK-device.PNG)
+![ULX3S-as-libusbK-device](/ujprog/images/ULX3S-as-libusbK-device.PNG)
 
 To remove the libusbK drivers, right click on your ULX3S device in Device Manager and select `Uninstall Device`:
 
-![Uninstall-libusbK-device](/images/Uninstall-libusbK-device.PNG)
+![Uninstall-libusbK-device](/ujprog/images/Uninstall-libusbK-device.PNG)
 
 Then click the Uninstall button (don't check the box unless you want to actually uninstall the drivers from Windows and then reinstall the drivers later; we are only uninstalling the device):
 
-![Uninstall-libusbK-device-step2](/images/Uninstall-libusbK-device-step2.PNG)
+![Uninstall-libusbK-device-step2](/ujprog/images/Uninstall-libusbK-device-step2.PNG)
 
 After clicking the Uninstall button, `Device Manager` may flicker a bit, but no message is typically shown. If the device was removed it will no longer be visible. If there are no other libusbK devices, then then entire `libusbK USB Devices` container will also be gone.
 
