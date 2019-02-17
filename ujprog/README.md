@@ -77,6 +77,7 @@ compiled with `i686-w64-mingw32-gcc` (installed with `apt-get install gcc-mingw-
 `make -f Makefile.ming32`
 
 You may need to disable windows security block
+
 ![windows security block](/ujprog/images/securityblock.png)
 
 
