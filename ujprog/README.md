@@ -131,6 +131,46 @@ After clicking the Uninstall button, `Device Manager` may flicker a bit, but no 
 
 To complete the process of installing the FDTI drivers: Unplug the ULX3S, wait 30 seconds and plug it back in. Windows should automatically use the FTDI drivers and a new COM port will appear in `Device Manager - Ports (COM & LPT)` as shown above.
 
+# Troubleshooting
+
+*** WINDOWS ***
+
+Most issues come from windows platform. In some cases
+ujprog doesn't work. Sometimes it is just a matter of dynamic
+linking (DLL file "ftd2xx.dll" or "ftd2xx64.dll", easiest is
+just to copy this file from FTDI D2XX CDM driver to the same
+directory where ujprog.exe is)
+
+But sometimes, there is strange problem related with ujprog.exe
+compiled with mingw where ujprog.exe if started from "wrong" directory
+doesn't works. When started from "wrong" directory, ujprog.exe
+will exit without printing any error or any other message, not even
+help/usage message if explictely invoked with "-h" option. In this
+case copy ujprog.exe to another directory and try again.
+
+*** LINUX ***
+
+Here we have much less issues, ujprog is statically linked and
+doesn't depend on any other file. Most issues come from user permissions
+so ujprog should be either run as root or the user should be given
+permissions to access USB device, that's usually fixed easily with
+some udev rule:
+
+    # /etc/udev/rules.d/80-fpga-ulx3s.rules
+    # this is for usb-serial tty device
+    SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6015", \
+      MODE="664", GROUP="dialout"
+    # this is for ujprog libusb access
+    ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6015", \
+      GROUP="dialout", MODE="666"
+
+*** APPLE ***
+
+There can be many problems, I don't know what to do
+one of the issues is that ujprog executable may needs
+some dynamic linked library of specific version like libusb
+
+
 # Changes by gojimmypi Feb 13 2019:
 
 Added this README.md
