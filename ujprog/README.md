@@ -143,18 +143,18 @@ directory where ujprog.exe is)
 
 But sometimes, there is strange problem related with ujprog.exe
 compiled with mingw where ujprog.exe if started from "wrong" directory
-doesn't works. When started from "wrong" directory, ujprog.exe
-will exit without printing any error or any other message, not even
-help/usage message if explictely invoked with "-h" option. In this
-case copy ujprog.exe to another directory and try again.
+doesn't work. When started from "wrong" directory, ujprog.exe
+will exit without printing any error or any other message while
+it should print help/usage message shown on top of this page.
+In this case copy ujprog.exe and dll to another directory and try again.
 
 *** LINUX ***
 
-Here we have much less issues, ujprog is statically linked and
+Here we have much better success, ujprog is statically linked and
 doesn't depend on any other file. Most issues come from user permissions
 so ujprog should be either run as root or the user should be given
-permissions to access USB device, that's usually fixed easily with
-some udev rule:
+permissions to access USB and serial device, that's usually done
+easily with some udev rule:
 
     # /etc/udev/rules.d/80-fpga-ulx3s.rules
     # this is for usb-serial tty device
