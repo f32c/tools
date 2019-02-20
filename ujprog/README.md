@@ -141,12 +141,16 @@ linking (DLL file "ftd2xx.dll" or "ftd2xx64.dll", easiest is
 just to copy this file from FTDI D2XX CDM driver to the same
 directory where ujprog.exe is)
 
-But sometimes, there is strange problem related with ujprog.exe
-compiled with mingw where ujprog.exe if started from "wrong" directory
+On VoIFS there is strange problem related with ujprog.exe
+compiled with mingw. ujprog.exe, if started from "wrong" directory
 doesn't work. When started from "wrong" directory, ujprog.exe
 will exit without printing any error or any other message while
 it should print help/usage message shown on top of this page.
-In this case copy ujprog.exe and dll to another directory and try again.
+Possible cause of this problem is that "ftd2xx64.dll" (for win64)
+is found copied to System32 directory under name "ftd2xx.dll" (for win32).
+
+Possible solution would be to remove all ftd2xx copies and copy
+ujprog.exe and dll to another directory and try again.
 
 *** LINUX ***
 
