@@ -1607,7 +1607,6 @@ cmp_chip_ids(char *got, char *exp)
 	return (0);
 }
 
-
 /*
  * Parse a Lattice XP2 JEDEC file and convert it into a SVF stream stored
  * in a contiguos chunk of memory.  If parsing is sucessfull proceed with
@@ -2172,6 +2171,7 @@ exec_bit_file(char *path, int jed_target, int debug)
 {
 	uint8_t *inbuf;
 	char *outbuf, *op;
+	char *outcp;
 	FILE *fd;
 	long flen, got;
 	uint32_t idcode;
@@ -2358,7 +2358,6 @@ exec_bit_file(char *path, int jed_target, int debug)
 		buf_sprintf(op, "	TDO	(00000100)\n");
 		buf_sprintf(op, "	MASK	(00002100);\n\n");
 	}
-
 	op--;
 	i = 0;
 	do {
@@ -2366,7 +2365,26 @@ exec_bit_file(char *path, int jed_target, int debug)
 			i++;
 	} while (op-- != outbuf);
 
-	res = exec_svf_mem(outbuf, i, debug);
+	if (svf_name) {
+		int of;
+
+		if (strncmp(svf_name, "-", 1) == 0)
+			of = 0;
+		else
+			of = open(svf_name, O_RDWR | O_CREAT | O_TRUNC, 0644);
+		if (of < 0) {
+			res = errno;
+			return(res);
+		}
+		res = 0;
+		for (j = 0, outcp = outbuf; j < i; j++) {
+			write(of, outcp, strlen(outcp));
+			outcp += (strlen(outcp) + 1);
+		}
+		if (of)
+			close(of);
+	} else
+		res = exec_svf_mem(outbuf, i, debug);
 
 	free(outbuf);
 	free(inbuf);
@@ -3968,9 +3986,9 @@ main(int argc, char *argv[])
 #endif
 
 #ifndef USE_PPI
-#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rs"
+#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rs:"
 #else
-#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rsc:"
+#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rs:c:"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
@@ -4078,7 +4096,7 @@ main(int argc, char *argv[])
 			usage();
 			exit(EXIT_FAILURE);
 		}
-		res = exec_jedec_file(argv[0], jed_target, debug);
+		res = exec_bit_file(argv[0], jed_target, debug);
 		return(res);
 	}
 
