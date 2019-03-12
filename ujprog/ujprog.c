@@ -2279,7 +2279,7 @@ exec_bit_file(char *path, int jed_target, int debug)
 
 			buf_sprintf(op, "SDR	32	TDI(0000%02x1B);\n",
 			    bitrev(addr / SPI_SECTOR_SIZE));
-			buf_sprintf(op, "RUNTEST DRPAUSE 2.50E-01 SEC;\n");
+			buf_sprintf(op, "RUNTEST DRPAUSE 2.50E+00 SEC;\n");
 			buf_sprintf(op, "SDR	16	TDI(00A0)\n");
 			buf_sprintf(op, "	TDO(00FF)\n");
 			buf_sprintf(op, "	MASK(C100);\n\n");
