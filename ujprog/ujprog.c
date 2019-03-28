@@ -324,6 +324,17 @@ static struct cable_hw_map {
 		.cbus_led =	0x00
 	},
 	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6010,
+		.cable_path =	"Lattice ECP5 Evaluation Board",
+		.tck =		0x01,
+		.tms =		0x08,
+		.tdi =		0x02,
+		.tdo =		0x04,
+		.cbus_led =	0x10
+	},
+	{
 		.cable_hw =	CABLE_HW_UNKNOWN,
 		.cable_path =	"UNKNOWN"
 	}
@@ -2277,9 +2288,16 @@ exec_bit_file(char *path, int jed_target, int debug)
 			/* SPI write enable */
 			buf_sprintf(op, "SDR	8	TDI(60);\n");
 
+			/* Read status register (some chips won't clear WIP without this) */
+			buf_sprintf(op, "SDR	16	TDI(00A0)\n");
+			buf_sprintf(op, "	TDO(40FF)\n");
+			buf_sprintf(op, "	MASK(C100);\n\n");
+
 			buf_sprintf(op, "SDR	32	TDI(0000%02x1B);\n",
 			    bitrev(addr / SPI_SECTOR_SIZE));
 			buf_sprintf(op, "RUNTEST DRPAUSE 5.50E-01 SEC;\n");
+
+			/* Read status register */
 			buf_sprintf(op, "SDR	16	TDI(00A0)\n");
 			buf_sprintf(op, "	TDO(00FF)\n");
 			buf_sprintf(op, "	MASK(C100);\n\n");
