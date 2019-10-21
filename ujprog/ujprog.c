@@ -1625,6 +1625,27 @@ static struct jed_devices {
 		.col_width =	1136,
 		.row_width =	13294,
 	},
+	{
+		.name =		"LFE5UM-25F",
+		.id =		0x01111043,
+		.fuses =	5681848,
+		.col_width =	592,
+		.row_width =	7562,
+	},
+	{
+		.name =		"LFE5UM-45F",
+		.id =		0x01112043,
+		.fuses =	10208312,
+		.col_width =	848,
+		.row_width =	9470,
+	},
+	{
+		.name =		"LFE5UM-85F",
+		.id =		0x01113043,
+		.fuses =	19244856,
+		.col_width =	1136,
+		.row_width =	13294,
+	},
 	{NULL, 0, 0}
 };
 
