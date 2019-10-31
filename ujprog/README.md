@@ -61,76 +61,6 @@ Edit Makefile.linux and enable this:
 
 `make -f Makefile.win`
 
-
-## MinGW (Windows 32 bit target exe; cross compiled from linux)
-
-To get 32-bit environment on debian while running on 64-bit linux
-it might be useful to enable multiarch
-(but I'm not sure if this is really necessary)
-
-`dpkg --add-architecture i386`
-
-`apt-get update`
-
-compiled with `i686-w64-mingw32-gcc` (installed with `apt-get install gcc-mingw-w64`); this uses the same `ftd2xx.lib` as used for linux (CDM v2.12.28 WHQL Certified\i386\ftd2xx.lib)
-
-`make -f Makefile.ming32`
-
-You may need to disable windows security block
-
-![windows security block](/ujprog/images/securityblock.png)
-
-
-## MinGW (Windows 64 bit target exe; cross compiled from linux)
-
-compiled with `x86_64-w64-mingw32-gcc` (installed with `sudo apt-get install mingw-w64`)
-
-Note this uses the 64bit `ftd2xx.amd64.lib` (`CDM v2.12.28 WHQL Certified\amd64\ftd2xx.lib`)
-
-`make -f Makefile.ming32_64`
-
-
-# NOTE on Windows Drivers
-
-The JTAG features of this ujprog cannot be used concurrently with OpenOCD.
-
-In order to use OpenOCD with the ULX3S, the `libusbK` dirvers are needed. One way of manually changing the drivers is to use [Zadig](https://zadig.akeo.ie/). The problem with using the `libusbK` drivers is that this ujprog will no longer work, as it needs the FTDI drivers.
-
-## Change ULX3S Driver to libusbK using Zadig
-The ULX3S is using the FTDI drivers if it shows up in the Device Manager - Ports (COM & LPT)
-
-![ULX3S-as-FTDI-device](/ujprog/images/ULX3S-as-FTDI-device.PNG)
-
-Launch Zadig and click on `Options - List all Devices`.  Select the ULX3S device from the dropdown:
-
-![Zadig-FTDI-to-libusbK](/ujprog/images/Zadig-FTDI-to-libusbK.PNG)
-
-Press the Replace Driver button and after a few moments you should see a message that the drivers were installed successfully:
-
-![Zadig-success](/ujprog/images/Zadig-success.PNG)
-
-The driver change typically works immediately and no reboot is needed.
-
-## Change ULX3S Driver to FTDI 
-
-The FTDI drivers should already be installed. If so, Windows will automatically use these drivers when a new ULXS3 is plugged in. If the FTDI Drivers are not installed, they can be downloaded from https://www.ftdichip.com/Drivers/D2XX.htm (the setup executable noted in the comments column may be the easiest way to install the drivers). 
-
-The ULX3S is using the libusbK drivers if it shows up in Device Manager - libusbK USB Devices. (typically when using OpenOCD)
-
-![ULX3S-as-libusbK-device](/ujprog/images/ULX3S-as-libusbK-device.PNG)
-
-To remove the libusbK drivers, right click on your ULX3S device in Device Manager and select `Uninstall Device`:
-
-![Uninstall-libusbK-device](/ujprog/images/Uninstall-libusbK-device.PNG)
-
-Then click the Uninstall button (don't check the box unless you want to actually uninstall the drivers from Windows and then reinstall the drivers later; we are only uninstalling the device):
-
-![Uninstall-libusbK-device-step2](/ujprog/images/Uninstall-libusbK-device-step2.PNG)
-
-After clicking the Uninstall button, `Device Manager` may flicker a bit, but no message is typically shown. If the device was removed it will no longer be visible. If there are no other libusbK devices, then then entire `libusbK USB Devices` container will also be gone.
-
-To complete the process of installing the FDTI drivers: Unplug the ULX3S, wait 30 seconds and plug it back in. Windows should automatically use the FTDI drivers and a new COM port will appear in `Device Manager - Ports (COM & LPT)` as shown above.
-
 # Troubleshooting
 
 *** WINDOWS ***
@@ -173,23 +103,4 @@ easily with some udev rule:
 There can be many problems, I don't know what to do
 one of the issues is that ujprog executable may needs
 some dynamic linked library of specific version like libusb
-
-
-# Changes by gojimmypi Feb 13 2019:
-
-Added this README.md
-
-Microsoft dumpbin reports 51E00677 time/date Fri Jul 12 06:36:55 2013 for current repo `ftd2xx.lib` 
-
-The most recent `ftd2xx.lib` in 2.12.28 is 599AE440 time/date Mon Aug 21 06:46:40 2017
-
-See https://www.ftdichip.com/Drivers/CDM/CDM%20v2.12.28%20WHQL%20Certified.zip on https://www.ftdichip.com/Drivers/D2XX.htm
-
-`Makefile.ming32` and `Makefile.ming32_64` have a rule to
-automatically download (`CDM v2.12.28 WHQL Certified.zip`) and unzip
-library required to link i386/amd64 exe.
-
-`Makefile.ming32` compiles with `i686-w64-mingw32-gcc` but it's not yet
-tested.
-
 
