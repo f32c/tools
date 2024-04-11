@@ -95,7 +95,8 @@ static int cmp_chip_ids(char *, char *);
 
 enum svf_cmd {
 	SVF_SDR, SVF_SIR, SVF_STATE, SVF_RUNTEST, SVF_HDR, SVF_HIR,
-	SVF_TDR, SVF_TIR, SVF_ENDDR, SVF_ENDIR, SVF_FREQUENCY, SVF_UNKNOWN
+	SVF_TDR, SVF_TIR, SVF_ENDDR, SVF_ENDIR, SVF_FREQUENCY,
+	SVF_TRST, SVF_UNKNOWN
 };
 
 static struct svf_cmdtable {
@@ -113,6 +114,7 @@ static struct svf_cmdtable {
 	{SVF_ENDDR,		"ENDDR"},
 	{SVF_ENDIR,		"ENDIR"},
 	{SVF_FREQUENCY,		"FREQUENCY"},
+	{SVF_TRST,		"TRST"},
 	{SVF_UNKNOWN,		NULL}
 };
 
@@ -1546,6 +1548,7 @@ exec_svf_tokenized(int tokc, char *tokv[])
 		break;
 
 	case SVF_FREQUENCY:
+	case SVF_TRST:
 		/* Silently ignored. */
 		break;
 
