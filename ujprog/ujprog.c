@@ -1474,10 +1474,17 @@ exec_svf_tokenized(int tokc, char *tokv[])
 		break;
 
 	case SVF_RUNTEST:
-		for (i = 2; i < tokc; i += 2) {
+		if (isnumber(tokv[1][0])) {
+			i = 1;
+			set_state(IDLE);
+		} else {
+			set_state(str2tapstate(tokv[1]));
+			i = 2;
+		}
+		for (; i < tokc; i += 2) {
 			if (strcmp(tokv[i + 1], "TCK") == 0) {
 				repeat = atoi(tokv[i]);
-				if (repeat < 1 || repeat > 1000) {
+				if (repeat < 1 || repeat > 10000) {
 					fprintf(stderr,
 					    "Unexpected token: %s\n",
 					    tokv[i]);
@@ -1505,7 +1512,6 @@ exec_svf_tokenized(int tokc, char *tokv[])
 				break;
 			}
 		}
-		set_state(str2tapstate(tokv[1]));
 		i = delay_ms * (USB_BAUDS / 2000);
 #ifdef USE_PPI
 		/* libftdi is relatively slow in sync mode on FreeBSD */
