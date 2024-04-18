@@ -431,8 +431,9 @@ static char *statc = "-\\|/";
 
 /* Runtime globals */
 static int cur_s = UNDEFINED;
-static uint8_t txbuf[64 * BUFLEN_MAX];
-static uint8_t rxbuf[64 * BUFLEN_MAX];
+static uint8_t txbuf[32 * 1024 * 1024];
+static uint8_t rxbuf[32 * 1024 * 1024];
+static uint8_t svfbuf[32 * 1024 * 1024];
 static int txpos;
 static int need_led_blink;	/* Schedule CBUS led toggle */
 static int last_ledblink_ms;	/* Last time we toggled the CBUS LED */
@@ -574,7 +575,7 @@ set_port_mode(int mode)
 		/* Pull TCK low so that we don't incidentally pulse it. */
 		memset(txbuf, 0, 10);
 #ifdef WIN32
-		FT_Write(ftHandle, txbuf, 100, (DWORD *) &res);
+		FT_Write(ftHandle, txbuf, 10, (DWORD *) &res);
 		if (res < 0) {
 			fprintf(stderr, "FT_Write() failed\n");
 			return (res);
@@ -1484,7 +1485,7 @@ exec_svf_tokenized(int tokc, char *tokv[])
 		for (; i < tokc; i += 2) {
 			if (strcmp(tokv[i + 1], "TCK") == 0) {
 				repeat = atoi(tokv[i]);
-				if (repeat < 1 || repeat > 10000) {
+				if (repeat < 1 || repeat > 100000) {
 					fprintf(stderr,
 					    "Unexpected token: %s\n",
 					    tokv[i]);
@@ -2546,7 +2547,6 @@ exec_svf_file(char *path, int debug)
 static int
 exec_svf_mem(char *fbuf, int lines_tot, int debug)
 {
-	char cmdbuf[128 * 1024];
 	int lno, tokc, cmd_complete, parentheses_open;
 	int res = 0;
 	int llen = 0;
@@ -2555,7 +2555,7 @@ exec_svf_mem(char *fbuf, int lines_tot, int debug)
 	char *linebuf, *item, *brkt;
 	char *tokv[256];
 
-	cp = cmdbuf;
+	cp = svfbuf;
 	cmd_complete = 0;
 	parentheses_open = 0;
 	linebuf = fbuf;
@@ -2636,8 +2636,8 @@ exec_svf_mem(char *fbuf, int lines_tot, int debug)
 
 		/* Normalize to all upper case letters, separate tokens */
 		tokc = 0;
-		tokv[0] = cmdbuf;
-		for (cp = cmdbuf; *cp != 0; cp++) {
+		tokv[0] = svfbuf;
+		for (cp = svfbuf; *cp != 0; cp++) {
 			if (*cp == ' ') {
 				*cp++ = 0;
 				tokc++;
@@ -2657,7 +2657,7 @@ exec_svf_mem(char *fbuf, int lines_tot, int debug)
 			return (res);
 		}
 
-		cp = cmdbuf;
+		cp = svfbuf;
 		cmd_complete = 0;
 	}
 
