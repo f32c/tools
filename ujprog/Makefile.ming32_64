@@ -6,7 +6,7 @@
 CPP  = x86_64-w64-mingw32-gcc
 CC   = x86_64-w64-mingw32-gcc
 
-FTDI_ZIP_URL = "https://www.ftdichip.com/Drivers/CDM/CDM%20v2.12.28%20WHQL%20Certified.zip"
+FTDI_ZIP_URL = "https://ftdichip.com/wp-content/uploads/2023/09/CDM-v2.12.36.4-WHQL-Certified.zip"
 FTDI_ZIP_FILE = ftdi.zip
 FTDI_LIB_UNZIPPED = amd64/ftd2xx
 
