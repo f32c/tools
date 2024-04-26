@@ -2,7 +2,7 @@
 SRCS = ujprog.c
 INCLUDES = -I/usr/local/include
 LIBDIRS = -L/usr/local/lib
-CFLAGS += -Wall ${INCLUDES}
+CFLAGS += -Wall -Wextra ${INCLUDES}
 FTLIB = /usr/local/lib/libftdi.a
 
 ujprog:	${SRCS}

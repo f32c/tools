@@ -153,9 +153,11 @@ static struct tap_statetable {
 #define	STATE2STR(state)	(tap_statetable[state].state_str)
 
 
-static enum port_mode {
+enum port_mode {
 	PORT_MODE_ASYNC, PORT_MODE_SYNC, PORT_MODE_UART, PORT_MODE_UNKNOWN
-} port_mode = PORT_MODE_UNKNOWN;
+};
+typedef enum port_mode port_mode_t;
+static port_mode_t port_mode = PORT_MODE_UNKNOWN;
 
 
 static enum cable_hw {
@@ -433,8 +435,8 @@ static char *statc = "-\\|/";
 static int cur_s = UNDEFINED;
 static uint8_t txbuf[32 * 1024 * 1024];
 static uint8_t rxbuf[32 * 1024 * 1024];
-static uint8_t svfbuf[32 * 1024 * 1024];
-static int txpos;
+static char svfbuf[32 * 1024 * 1024];
+static unsigned txpos;
 static int need_led_blink;	/* Schedule CBUS led toggle */
 static int last_ledblink_ms;	/* Last time we toggled the CBUS LED */
 static int led_state;		/* CBUS LED indicator state */
@@ -490,7 +492,7 @@ ms_uptime(void)
 
 
 static int
-set_port_mode(int mode)
+set_port_mode(port_mode_t mode)
 {
 	int res = 0;
 
@@ -891,10 +893,10 @@ set_tms_tdi(int tms, int tdi)
 
 
 static int
-send_generic(int bits, char *tdi, char *tdo, char *mask)
+send_generic(unsigned bits, char *tdi, char *tdo, char *mask)
 {
-	int res, i, bitpos, tdomask, tdoval, maskval, val = 0, txval = 0;
-	int rxpos, rxlen;
+	int res, bitpos, tdomask, tdoval, maskval, val = 0, txval = 0;
+	unsigned i, rxpos, rxlen;
 
 	if (cable_hw == CABLE_HW_USB)
 		tdomask = USB_TDO;
@@ -1049,7 +1051,7 @@ send_ir(int bits, char *tdi, char *tdo, char *mask)
 static int
 commit_usb(void)
 {
-	int txchunklen, res, i;
+	unsigned txchunklen, i, res;
 
 	for (i = 0; i < txpos; i += txchunklen) {
 		txchunklen = txpos - i;
@@ -1106,7 +1108,7 @@ commit_usb(void)
 static int
 commit_ppi(void)
 {
-	int i, val;
+	unsigned i, val;
 
 	for (i = 0; i < txpos; i++) {
 		val = txbuf[i];
@@ -1667,7 +1669,7 @@ static struct jed_devices {
 		.col_width =	1136,
 		.row_width =	13294,
 	},
-	{NULL, 0, 0}
+	{NULL, 0, 0, 0, 0}
 };
 
 
@@ -3018,11 +3020,11 @@ async_set_baudrate(int speed)
 static void
 txfile(void)
 {
-	int tx_cnt, i, infile, res;
+	int infile, res;
 	int crc_retry;
 	int tx_retry, tx_success;
-	uint32_t rx_crc, local_crc, crc_i;
-	uint32_t base, bootaddr;
+	uint32_t rx_crc, local_crc, crc_i, tx_cnt;
+	uint32_t i, base, bootaddr;
 	FILE *fd;
 	uint8_t hdrbuf[16];
 
@@ -3935,7 +3937,7 @@ term_emul(void)
 #else
 		rx_cnt = 1;
 		if (cable_hw == CABLE_HW_USB) {
-			if (rx_cnt < fc.readbuffer_remaining)
+			if (rx_cnt < (int) fc.readbuffer_remaining)
 				rx_cnt = fc.readbuffer_remaining;
 			if (rx_cnt > BUFLEN_MAX)
 				rx_cnt = BUFLEN_MAX;
