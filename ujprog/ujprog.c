@@ -1129,8 +1129,14 @@ commit(int force)
 {
 
 	if (txpos == 0 || (!force && port_mode != PORT_MODE_SYNC &&
-	    txpos < sizeof(txbuf) / 2))
+	    txpos < BUFLEN_MAX))
 		return (0);
+
+	if (!quiet && progress_perc < 100) {
+		fprintf(stderr, "\rProgramming: %d%% %c ",
+		    progress_perc, statc[blinker_phase]);
+		fflush(stderr);
+	}
 
 #ifdef USE_PPI
 	if (cable_hw == CABLE_HW_PPI)
