@@ -55,7 +55,7 @@ static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.93";
 
 #ifdef __FreeBSD__
 #define USE_PPI
-#define USE_TEST
+#define USE_RAW
 #endif
 
 #if defined(__linux__) || defined(WIN32)
@@ -162,7 +162,7 @@ static port_mode_t port_mode = PORT_MODE_UNKNOWN;
 
 
 static enum cable_hw {
-	CABLE_HW_USB, CABLE_HW_PPI, CABLE_HW_COM, CABLE_TEST, CABLE_UNKNOWN
+	CABLE_HW_USB, CABLE_HW_PPI, CABLE_HW_COM, CABLE_RAW, CABLE_UNKNOWN
 } cable_hw = CABLE_UNKNOWN;
 
 
@@ -174,6 +174,14 @@ static struct cable_hw_map {
 	char	tck, tms, tdi, tdo;
 	char	cbus_led;
 } cable_hw_map[] = {
+#ifdef USE_RAW
+	{
+		.cable_hw = 	CABLE_RAW,
+		.cable_path =	"raw bitstream output",
+		.tms =		0x02,
+		.tdi =		0x01,
+	},
+#endif
 	{
 		.cable_hw = 	CABLE_HW_USB,
 		.usb_vid = 	0x0403,
@@ -716,6 +724,54 @@ shutdown_usb(void)
 #endif /* WIN32 */
 
 
+#ifdef USE_RAW
+static int raw_pos;
+static char raw_ch;
+
+static int
+setup_raw(void)
+{
+
+	for (hmp = cable_hw_map; hmp->cable_hw != CABLE_RAW; hmp++) {
+	}
+
+	/* XXX try to open output file for writing */
+	return (0);
+}
+
+static int
+commit_raw(void)
+{
+	unsigned i;
+
+	for (i = 0; i < txpos; i += 2) {
+		raw_ch <<= 2;
+		raw_ch |= txbuf[i] & 0x3;
+		if ((raw_pos & 0x3) == 0x3)
+			printf("%02x", raw_ch & 0xff);
+		if ((raw_pos & 0x7f) == 0x7f)
+			printf("\n");
+		raw_pos++;
+	}
+
+	txpos = 0;
+	return (0);
+}
+
+static void
+shutdown_raw(void)
+{
+
+	if ((raw_pos & 0x3) != 0x3) {
+		txpos = (4 - (raw_pos & 0x3)) * 2;
+		memset(txbuf, 0, txpos);
+		commit_raw();
+	}
+	if ((raw_pos & 0x7f) != 0x7f)
+		printf("\n");
+}
+#endif
+
 #ifndef WIN32
 #ifdef USE_PPI
 static int
@@ -869,7 +925,7 @@ set_tms_tdi(int tms, int tdi)
 {
 	int val = 0;
 
-	if (cable_hw == CABLE_HW_USB) {
+	if (cable_hw != CABLE_HW_PPI) {
 		if (tms)
 			val |= JTAG_TMS;
 		if (tdi)
@@ -900,7 +956,7 @@ send_generic(unsigned bits, char *tdi, char *tdo, char *mask)
 	int res, bitpos, tdomask, tdoval, maskval, val = 0, txval = 0;
 	unsigned i, rxpos, rxlen;
 
-	if (cable_hw == CABLE_HW_USB)
+	if (cable_hw != CABLE_HW_PPI)
 		tdomask = JTAG_TDO;
 	else
 		tdomask = PPI_TDO;
@@ -1143,6 +1199,10 @@ commit(int force)
 #ifdef USE_PPI
 	if (cable_hw == CABLE_HW_PPI)
 		return (commit_ppi());
+#endif
+#ifdef USE_RAW
+	if (cable_hw == CABLE_RAW)
+		return (commit_raw());
 #endif
 	if (cable_hw == CABLE_HW_USB)
 		return (commit_usb());
@@ -1462,6 +1522,8 @@ exec_svf_tokenized(int tokc, char *tokv[])
 		}
 		if (res)
 			break;
+		if (cable_hw == CABLE_RAW)
+			break; /* Ignore non-existing TDO response */
 		if ((tokc == 6 || tokc == 8) && strcmp(tokv[3], tokv[5]) != 0) {
 			if (strlen(tokv[3]) == 8 && strlen(tokv[5]) == 8 &&
 			    strcmp(tokv[7], "FFFFFFFF") == 0 &&
@@ -4098,10 +4160,10 @@ main(int argc, char *argv[])
 	COMMTIMEOUTS com_to;
 #endif
 
-#ifndef USE_PPI
-#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rs:"
-#else
+#if defined(USE_PPI) || defined(USE_RAW)
 #define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rs:c:"
+#else
+#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rs:"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
@@ -4115,12 +4177,14 @@ main(int argc, char *argv[])
 		case 'x':
 			xbauds = atoi(optarg);
 			break;
-#ifdef USE_PPI
+#if defined(USE_PPI) || defined(USE_RAW)
 		case 'c':
 			if (strcasecmp(optarg, "usb") == 0)
 				cable_hw = CABLE_HW_USB;
 			else if (strcasecmp(optarg, "ppi") == 0)
 				cable_hw = CABLE_HW_PPI;
+			else if (strcasecmp(optarg, "raw") == 0)
+				cable_hw = CABLE_RAW;
 			else {
 				usage();
 				exit(EXIT_FAILURE);
@@ -4252,6 +4316,11 @@ main(int argc, char *argv[])
 		res = setup_ppi();
 #endif
 		break;
+#ifdef USE_RAW
+	case CABLE_RAW:
+		res = setup_raw();
+		break;
+#endif
 	case CABLE_HW_COM:
 		if (xbauds == 0)
 			xbauds = bauds;
@@ -4310,6 +4379,11 @@ main(int argc, char *argv[])
 #ifndef WIN32
 		if (cable_hw == CABLE_HW_USB)
 			printf("Using USB cable: %s\n", hmp->cable_path);
+#ifdef USE_PPI
+		else if (cable_hw == CABLE_RAW) {
+			printf("Generating %s\n", hmp->cable_path);
+}
+#endif
 		else
 #ifdef USE_PPI
 			printf("Using parallel port JTAG cable.\n");
@@ -4346,6 +4420,10 @@ main(int argc, char *argv[])
 		ms_sleep(1); // small delay for f32c to start
 		shutdown_usb();
 	}
+#ifdef USE_RAW
+	else if (cable_hw == CABLE_RAW)
+		shutdown_raw();
+#endif
 #ifdef USE_PPI
 	else
 		shutdown_ppi();
