@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.92";
+static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.93";
 
 
 #include <ctype.h>
@@ -55,6 +55,7 @@ static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.92";
 
 #ifdef __FreeBSD__
 #define USE_PPI
+#define USE_TEST
 #endif
 
 #if defined(__linux__) || defined(WIN32)
@@ -161,8 +162,8 @@ static port_mode_t port_mode = PORT_MODE_UNKNOWN;
 
 
 static enum cable_hw {
-	CABLE_HW_USB, CABLE_HW_PPI, CABLE_HW_COM, CABLE_HW_UNKNOWN
-} cable_hw = CABLE_HW_UNKNOWN;
+	CABLE_HW_USB, CABLE_HW_PPI, CABLE_HW_COM, CABLE_TEST, CABLE_UNKNOWN
+} cable_hw = CABLE_UNKNOWN;
 
 
 static struct cable_hw_map {
@@ -394,7 +395,7 @@ static struct cable_hw_map {
 		.cbus_led =	0x00
 	},
 	{
-		.cable_hw =	CABLE_HW_UNKNOWN,
+		.cable_hw =	CABLE_UNKNOWN,
 		.cable_path =	"UNKNOWN"
 	}
 };
@@ -402,10 +403,11 @@ static struct cable_hw_map {
 
 #define	USB_BAUDS		1000000
 
-#define	USB_TCK			(hmp->tck)
-#define	USB_TMS			(hmp->tms)
-#define	USB_TDI			(hmp->tdi)
-#define	USB_TDO			(hmp->tdo)
+#define	JTAG_TCK		(hmp->tck)
+#define	JTAG_TMS		(hmp->tms)
+#define	JTAG_TDI		(hmp->tdi)
+#define	JTAG_TDO		(hmp->tdo)
+
 #define	USB_CBUS_LED		(hmp->cbus_led)
 
 #define	PPI_TCK			0x02
@@ -537,7 +539,7 @@ set_port_mode(port_mode_t mode)
 #else
 		res = ftdi_set_bitmode(&fc,
 #endif
-		    USB_TCK | USB_TMS | USB_TDI | led_state,
+		    JTAG_TCK | JTAG_TMS | JTAG_TDI | led_state,
 		    BITMODE_SYNCBB | (BITMODE_CBUS * (USB_CBUS_LED != 0)));
 
 		if (port_mode == PORT_MODE_SYNC)
@@ -566,7 +568,7 @@ set_port_mode(port_mode_t mode)
 #else
 		res = ftdi_set_bitmode(&fc,
 #endif
-		    USB_TCK | USB_TMS | USB_TDI | led_state,
+		    JTAG_TCK | JTAG_TMS | JTAG_TDI | led_state,
 		    BITMODE_BITBANG | (BITMODE_CBUS * (USB_CBUS_LED != 0)));
 		break;
 
@@ -624,12 +626,12 @@ setup_usb(void)
 		fprintf(stderr, "FT_GetDeviceInfo() failed\n");
 		return (res);
 	}
-	for (hmp = cable_hw_map; hmp->cable_hw != CABLE_HW_UNKNOWN; hmp++) {
+	for (hmp = cable_hw_map; hmp->cable_hw != CABLE_UNKNOWN; hmp++) {
 		if ((deviceID == hmp->usb_vid << 16 | hmp->usb_pid)
 		    && strcmp(Description, hmp->cable_path) == 0)
 			break;
 	}
-	if (hmp->cable_hw == CABLE_HW_UNKNOWN)
+	if (hmp->cable_hw == CABLE_UNKNOWN)
 		return (-1);
 
 	if (!quiet)
@@ -769,7 +771,7 @@ setup_usb(void)
 		return (res);
 	}
 
-	for (hmp = cable_hw_map; hmp->cable_hw != CABLE_HW_UNKNOWN; hmp++) {
+	for (hmp = cable_hw_map; hmp->cable_hw != CABLE_UNKNOWN; hmp++) {
 		res = ftdi_usb_open_desc_index(&fc, hmp->usb_vid, hmp->usb_pid,
 		    hmp->cable_path, NULL, port_index);
 		if (res == 0)
@@ -808,7 +810,7 @@ setup_usb(void)
 		return (res);
 	}
 
-	res = ftdi_set_bitmode(&fc, USB_TCK | USB_TMS | USB_TDI,
+	res = ftdi_set_bitmode(&fc, JTAG_TCK | JTAG_TMS | JTAG_TDI,
 	    BITMODE_BITBANG);
 	if (res < 0) {
 		fprintf(stderr, "ftdi_set_bitmode() failed\n");
@@ -869,11 +871,11 @@ set_tms_tdi(int tms, int tdi)
 
 	if (cable_hw == CABLE_HW_USB) {
 		if (tms)
-			val |= USB_TMS;
+			val |= JTAG_TMS;
 		if (tdi)
-			val |= USB_TDI;
+			val |= JTAG_TDI;
 		txbuf[txpos++] = val;
-		txbuf[txpos++] = val | USB_TCK;
+		txbuf[txpos++] = val | JTAG_TCK;
 	} else { /* PPI */
 		if (tms)
 			val |= PPI_TMS;
@@ -899,7 +901,7 @@ send_generic(unsigned bits, char *tdi, char *tdo, char *mask)
 	unsigned i, rxpos, rxlen;
 
 	if (cable_hw == CABLE_HW_USB)
-		tdomask = USB_TDO;
+		tdomask = JTAG_TDO;
 	else
 		tdomask = PPI_TDO;
 
@@ -1531,7 +1533,7 @@ exec_svf_tokenized(int tokc, char *tokv[])
 			repeat = i;
 		for (i = 0; i < repeat; i++) {
 			txbuf[txpos++] = 0;
-			txbuf[txpos++] = USB_TCK;
+			txbuf[txpos++] = JTAG_TCK;
 			if (txpos >= sizeof(txbuf) / 2) {
 				commit(0);
 				if (need_led_blink)
@@ -4235,7 +4237,7 @@ main(int argc, char *argv[])
 	}
 
 	switch (cable_hw) {
-	case CABLE_HW_UNKNOWN:
+	case CABLE_UNKNOWN:
 	case CABLE_HW_USB:
 		res = setup_usb();
 		if (res == 0)
