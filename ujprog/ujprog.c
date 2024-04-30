@@ -53,9 +53,10 @@ static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.93";
 #include <string.h>
 #include <unistd.h>
 
+#define USE_RAW
+
 #ifdef __FreeBSD__
 #define USE_PPI
-#define USE_RAW
 #endif
 
 #if defined(__linux__) || defined(WIN32)
