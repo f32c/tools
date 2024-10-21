@@ -1,7 +1,7 @@
 /*
  * FT-232R / FT-231X USB JTAG programmer
  *
- * Copyright (c) 2010 - 2018 Marko Zec, University of Zagreb
+ * Copyright (c) 2010 - 2024 Marko Zec
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.93";
+static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.94";
 
 
 #include <ctype.h>
