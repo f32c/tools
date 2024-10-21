@@ -727,6 +727,7 @@ shutdown_usb(void)
 
 #ifdef USE_RAW
 static int raw_pos;
+static int raw_csum;
 static char raw_ch;
 
 static int
@@ -746,12 +747,26 @@ commit_raw(void)
 	unsigned i;
 
 	for (i = 0; i < txpos; i += 2) {
+		/* SREC line header */
+		if ((raw_pos & 0x7f) == 0) {
+			printf("S224%06X", raw_pos >> 2);
+			raw_csum = 0x24;
+			raw_csum += (raw_pos >> 18) & 0xff;
+			raw_csum += (raw_pos >> 10) & 0xff;
+			raw_csum += (raw_pos >> 2) & 0xff;
+		}
+
 		raw_ch <<= 2;
 		raw_ch |= txbuf[i] & 0x3;
-		if ((raw_pos & 0x3) == 0x3)
+		if ((raw_pos & 0x3) == 0x3) {
 			printf("%02x", raw_ch & 0xff);
-		if ((raw_pos & 0x7f) == 0x7f)
-			printf("\n");
+			raw_csum += raw_ch;
+		}
+
+		if ((raw_pos & 0x7f) == 0x7f) {
+			printf("%02x\n", 0xff - (raw_csum & 0xff));
+			raw_csum = 0;
+		}
 		raw_pos++;
 	}
 
@@ -763,8 +778,9 @@ static void
 shutdown_raw(void)
 {
 
-	if ((raw_pos & 0x3) != 0x3) {
-		txpos = (4 - (raw_pos & 0x3)) * 2;
+	/* Pad and flush SREC line */
+	if ((raw_pos & 0x7f) != 0x7f) {
+		txpos = (0x80 - (raw_pos & 0x7f)) * 2;
 		memset(txbuf, 0, txpos);
 		commit_raw();
 	}
