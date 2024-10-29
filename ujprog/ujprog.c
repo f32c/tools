@@ -741,6 +741,23 @@ setup_raw(void)
 	return (0);
 }
 
+static void
+srec_header(const char *name)
+{
+	int i;
+	int csum;
+
+	csum = strlen(name) + 3;
+	printf("S0%02X0000", csum);
+
+	for (i = 0; i < strlen(name); i++) {
+		printf("%02X", name[i]);
+		csum += name[i];
+	}
+
+	printf("%02X\n", 0xff - (csum & 0xff));
+}
+
 static int
 commit_raw(void)
 {
@@ -759,12 +776,12 @@ commit_raw(void)
 		raw_ch <<= 2;
 		raw_ch |= txbuf[i] & 0x3;
 		if ((raw_pos & 0x3) == 0x3) {
-			printf("%02x", raw_ch & 0xff);
+			printf("%02X", raw_ch & 0xff);
 			raw_csum += raw_ch;
 		}
 
 		if ((raw_pos & 0x7f) == 0x7f) {
-			printf("%02x\n", 0xff - (raw_csum & 0xff));
+			printf("%02X\n", 0xff - (raw_csum & 0xff));
 			raw_csum = 0;
 		}
 		raw_pos++;
@@ -2870,6 +2887,15 @@ prog(char *fname, int target, int debug)
 {
 	int res, c, tstart, tend;
 
+	c = strlen(fname) - 4;
+	if (c < 0) {
+		usage();
+		exit(EXIT_FAILURE);
+	}
+
+	if (cable_hw == CABLE_RAW)
+		srec_header(fname);
+
 	tstart = ms_uptime();
 	last_ledblink_ms = tstart;
 
@@ -2879,11 +2905,6 @@ prog(char *fname, int target, int debug)
 
 	commit(1);
 
-	c = strlen(fname) - 4;
-	if (c < 0) {
-		usage();
-		exit(EXIT_FAILURE);
-	}
 	if (strcasecmp(&fname[c], ".jed") == 0)
 		res = exec_jedec_file(fname, target, debug);
 	else if (strcasecmp(&fname[c], ".bit") == 0 ||
