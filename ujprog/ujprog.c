@@ -744,7 +744,7 @@ setup_raw(void)
 static void
 srec_header(const char *name)
 {
-	int i;
+	unsigned i;
 	int csum;
 
 	csum = strlen(name) + 3;
