@@ -4189,6 +4189,13 @@ term_emul(void)
 						    cons_out, &screen_info);
 						cursor_pos =
 						    screen_info.dwCursorPosition;
+						FillConsoleOutputCharacter(
+						    cons_out, ' ',
+						    screen_info.srWindow.Right
+						    - cursor_pos.X,
+						    cursor_pos, &sent);
+						SetConsoleCursorPosition(
+						    cons_out, cursor_pos);
 						break;
 					default:
 						break;
