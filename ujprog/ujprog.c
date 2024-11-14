@@ -801,8 +801,7 @@ shutdown_raw(void)
 		memset(txbuf, 0, txpos);
 		commit_raw();
 	}
-	if ((raw_pos & 0x7f) != 0x7f)
-		printf("\n");
+	printf("S804000000FB\n");
 }
 #endif
 
