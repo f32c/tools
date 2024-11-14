@@ -4067,10 +4067,11 @@ term_emul(void)
 				 * Interpret selected VT-100 control sequences
 				 */
 				if (c == 27) {
-					prev_char = 27;
+					prev_char = c;
 					continue;
 				}
 				if (prev_char == 27 && c == '[') {
+					prev_char = c;
 					rx_esc_seqn = 1;
 					esc_arg = 0;
 					esc_arg0 = 0;
@@ -4088,9 +4089,15 @@ term_emul(void)
 						continue;
 					}
 					switch (c) {
-					case 's': /* Save cursor position */
-						break;
-					case 'u': /* Restore cursor position */
+					case 'm': /* Set char attribute */
+						cons_color = color0;
+						if (esc_arg == 1 ||
+						    esc_arg == 4) {
+							cons_color |=
+							    FOREGROUND_RED;
+						}
+						SetConsoleTextAttribute(
+						    cons_out, cons_color);
 						break;
 					case 'n': /* Query cursor position */
 						if (esc_arg != 6)
@@ -4107,13 +4114,41 @@ term_emul(void)
 						FT_Write(ftHandle, vt100buf,
 						    c, &sent);
 						break;
-					case 'C': /* Set cursor hpos */
+					case 's': /* Save cursor position */
 						break;
-					case 'H': /* Cursor home */
+					case 'u': /* Restore cursor position */
 						break;
 					case 'A': /* Cursor up */
 						break;
-					case 'K': /* Erase to end of line */
+					case 'C': /* Set cursor hpos */
+						break;
+					case 'D': /* Scroll up one line */
+						SMALL_RECT rs, rd;
+						CHAR_INFO chi;
+
+						GetConsoleScreenBufferInfo(
+						    cons_out, &screen_info);
+						rs.Top = 0;
+						rs.Bottom =
+						    screen_info.dwSize.Y - 2;
+						rs.Left = 0;
+						rs.Right =
+						    screen_info.dwSize.X - 1;
+						rd.Top = 1;
+						rd.Bottom =
+						    screen_info.dwSize.Y - 1;
+						rd.Left = 0;
+						rd.Right =
+						    screen_info.dwSize.X - 1;
+						cursor_pos.X = 0;
+						cursor_pos.Y = 0;
+						chi.Attributes = color0;
+						chi.Char.AsciiChar = ' ';
+						ScrollConsoleScreenBuffer(
+						    cons_out, &rs, &rd,
+						    cursor_pos, &chi);
+						break;
+					case 'H': /* Cursor home */
 						break;
 					case 'J': /* Clear screen */
 						GetConsoleScreenBufferInfo(
@@ -4132,15 +4167,7 @@ term_emul(void)
 						SetConsoleCursorPosition(
 						    cons_out, cursor_pos);
 						break;
-					case 'm': /* Set char attribute */
-						cons_color = color0;
-						if (esc_arg == 1 ||
-						    esc_arg == 4) {
-							cons_color |=
-							    FOREGROUND_RED;
-						}
-						SetConsoleTextAttribute(
-						    cons_out, cons_color);
+					case 'K': /* Erase to end of line */
 						break;
 					default:
 						break;
