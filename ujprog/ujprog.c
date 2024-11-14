@@ -4115,10 +4115,23 @@ term_emul(void)
 						    c, &sent);
 						break;
 					case 's': /* Save cursor position */
+						GetConsoleScreenBufferInfo(
+						    cons_out, &screen_info);
+						saved_cursor_pos =
+						    screen_info.dwCursorPosition;
 						break;
 					case 'u': /* Restore cursor position */
+						SetConsoleCursorPosition(
+						    cons_out, saved_cursor_pos);
 						break;
 					case 'A': /* Cursor up */
+						GetConsoleScreenBufferInfo(
+						    cons_out, &screen_info);
+						cursor_pos =
+						    screen_info.dwCursorPosition;
+						cursor_pos.Y--;
+						SetConsoleCursorPosition(
+						    cons_out, cursor_pos);
 						break;
 					case 'C': /* Set cursor hpos */
 						break;
@@ -4149,6 +4162,10 @@ term_emul(void)
 						    cursor_pos, &chi);
 						break;
 					case 'H': /* Cursor home */
+						cursor_pos.X = 0;
+						cursor_pos.Y = 0;
+						SetConsoleCursorPosition(
+						    cons_out, cursor_pos);
 						break;
 					case 'J': /* Clear screen */
 						GetConsoleScreenBufferInfo(
@@ -4168,6 +4185,10 @@ term_emul(void)
 						    cons_out, cursor_pos);
 						break;
 					case 'K': /* Erase to end of line */
+						GetConsoleScreenBufferInfo(
+						    cons_out, &screen_info);
+						cursor_pos =
+						    screen_info.dwCursorPosition;
 						break;
 					default:
 						break;
