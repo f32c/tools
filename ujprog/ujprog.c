@@ -4070,11 +4070,43 @@ term_emul(void)
 					prev_char = c;
 					continue;
 				}
-				if (prev_char == 27 && c == '[') {
+				if (prev_char == 27) {
 					prev_char = c;
-					rx_esc_seqn = 1;
-					esc_arg = 0;
-					esc_arg0 = 0;
+					switch (c) {
+					case '[':
+						rx_esc_seqn = 1;
+						esc_arg = 0;
+						esc_arg0 = 0;
+						break;
+					case 'D': /* scroll up one line */
+						SMALL_RECT rs, rd;
+						CHAR_INFO chi;
+
+						GetConsoleScreenBufferInfo(
+						    cons_out, &screen_info);
+						rs.Top = 0;
+						rs.Bottom =
+						    screen_info.dwSize.Y - 2;
+						rs.Left = 0;
+						rs.Right =
+						    screen_info.dwSize.X - 1;
+						rd.Top = 1;
+						rd.Bottom =
+						    screen_info.dwSize.Y - 1;
+						rd.Left = 0;
+						rd.Right =
+						    screen_info.dwSize.X - 1;
+						cursor_pos.X = 0;
+						cursor_pos.Y = 0;
+						chi.Attributes = color0;
+						chi.Char.AsciiChar = ' ';
+						ScrollConsoleScreenBuffer(
+						    cons_out, &rs, &rd,
+						    cursor_pos, &chi);
+						break;
+					default:
+						break;
+					}
 					continue;
 				}
 				if (rx_esc_seqn) {
@@ -4129,62 +4161,72 @@ term_emul(void)
 						    cons_out, &screen_info);
 						cursor_pos =
 						    screen_info.dwCursorPosition;
-						cursor_pos.Y--;
+						if (esc_arg)
+							cursor_pos.Y -= esc_arg;
+						else
+							cursor_pos.Y--;
 						SetConsoleCursorPosition(
 						    cons_out, cursor_pos);
 						break;
-					case 'C': /* Set cursor hpos */
-						/* XXX unimplemented */
-						break;
-					case 'D': /* VT52 cursor left */
+					case 'B': /* Cursor down */
 						GetConsoleScreenBufferInfo(
 						    cons_out, &screen_info);
 						cursor_pos =
 						    screen_info.dwCursorPosition;
-						cursor_pos.X -= esc_arg;
+						if (esc_arg)
+							cursor_pos.Y += esc_arg;
+						else
+							cursor_pos.Y++;
 						SetConsoleCursorPosition(
 						    cons_out, cursor_pos);
 						break;
-#if 0
-					case 'D': /* Scroll up one line */
-						SMALL_RECT rs, rd;
-						CHAR_INFO chi;
-
+					case 'C': /* Cursor right */
 						GetConsoleScreenBufferInfo(
 						    cons_out, &screen_info);
-						rs.Top = 0;
-						rs.Bottom =
-						    screen_info.dwSize.Y - 2;
-						rs.Left = 0;
-						rs.Right =
-						    screen_info.dwSize.X - 1;
-						rd.Top = 1;
-						rd.Bottom =
-						    screen_info.dwSize.Y - 1;
-						rd.Left = 0;
-						rd.Right =
-						    screen_info.dwSize.X - 1;
-						cursor_pos.X = 0;
-						cursor_pos.Y = 0;
-						chi.Attributes = color0;
-						chi.Char.AsciiChar = ' ';
-						ScrollConsoleScreenBuffer(
-						    cons_out, &rs, &rd,
-						    cursor_pos, &chi);
+						cursor_pos =
+						    screen_info.dwCursorPosition;
+						if (esc_arg)
+							cursor_pos.X += esc_arg;
+						else
+							cursor_pos.X++;
+						SetConsoleCursorPosition(
+						    cons_out, cursor_pos);
 						break;
-#endif
-					case 'H': /* Cursor home */
-						cursor_pos.X = 0;
-						cursor_pos.Y = 0;
+					case 'D': /* Cursor left */
+						GetConsoleScreenBufferInfo(
+						    cons_out, &screen_info);
+						cursor_pos =
+						    screen_info.dwCursorPosition;
+						if (esc_arg)
+							cursor_pos.X -= esc_arg;
+						else
+							cursor_pos.X--;
+						SetConsoleCursorPosition(
+						    cons_out, cursor_pos);
+						break;
+					case 'H': /* Move cursor */
+					case 'f': /* Move cursor */
+						GetConsoleScreenBufferInfo(
+						    cons_out, &screen_info);
+						cursor_pos.X =
+						    screen_info.srWindow.Right
+						    - 1;
+						cursor_pos.Y =
+						    screen_info.srWindow.Bottom
+						    - 1;
+						if (esc_arg0 < cursor_pos.X)
+							cursor_pos.X = esc_arg0;
+						if (esc_arg < cursor_pos.Y)
+							cursor_pos.Y = esc_arg;
 						SetConsoleCursorPosition(
 						    cons_out, cursor_pos);
 						break;
 					case 'J': /* Clear screen */
 						GetConsoleScreenBufferInfo(
 						    cons_out, &screen_info);
-						cursor_pos.X = 
+						cursor_pos.X =
 						    screen_info.srWindow.Left;
-						cursor_pos.Y = 
+						cursor_pos.Y =
 						    screen_info.srWindow.Top;
 						FillConsoleOutputCharacter(
 						    cons_out, ' ',
