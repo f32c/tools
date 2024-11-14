@@ -4134,7 +4134,18 @@ term_emul(void)
 						    cons_out, cursor_pos);
 						break;
 					case 'C': /* Set cursor hpos */
+						/* XXX unimplemented */
 						break;
+					case 'D': /* VT52 cursor left */
+						GetConsoleScreenBufferInfo(
+						    cons_out, &screen_info);
+						cursor_pos =
+						    screen_info.dwCursorPosition;
+						cursor_pos.X -= esc_arg;
+						SetConsoleCursorPosition(
+						    cons_out, cursor_pos);
+						break;
+#if 0
 					case 'D': /* Scroll up one line */
 						SMALL_RECT rs, rd;
 						CHAR_INFO chi;
@@ -4161,6 +4172,7 @@ term_emul(void)
 						    cons_out, &rs, &rd,
 						    cursor_pos, &chi);
 						break;
+#endif
 					case 'H': /* Cursor home */
 						cursor_pos.X = 0;
 						cursor_pos.Y = 0;
