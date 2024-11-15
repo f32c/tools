@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.0.94";
+static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.1";
 
 
 #include <ctype.h>
@@ -3869,7 +3869,7 @@ term_emul(void)
 				continue;
 			}
 			if (c == 0) {
-				tx_esc_seqn = 2; /* FN keys */
+				tx_esc_seqn = 2; /* FN keys / cygwin */
 				continue;
 			}
 			if (tx_esc_seqn == 1) {
@@ -3911,7 +3911,40 @@ term_emul(void)
 				continue;
 			}
 			if (tx_esc_seqn == 2) {
-				/* Ignore FN keys for now */
+				keystr = "";
+				switch (c) {
+				case 'K':	/* cursor left */
+					keystr = "\x1b[D";
+					break;
+				case 'M':	/* cursor right */
+					keystr = "\x1b[C";
+					break;
+				case 'H':	/* cursor up */
+					keystr = "\x1b[A";
+					break;
+				case 'P':	/* cursor down */
+					keystr = "\x1b[B";
+					break;
+				case 'R':	/* INS */
+					keystr = "\x1b[2\x7e";
+					break;
+				case 'S':	/* DEL */
+					keystr = "\x1b[3\x7e";
+					break;
+				case 'I':	/* PgUP */
+					break;
+				case 'Q':	/* PgDOWN */
+					break;
+				case 'G':	/* Home */
+					keystr = "\x1b[H";
+					break;
+				case 'O':	/* End */
+					keystr = "\x1b[F";
+					break;
+				default:
+					break;
+				}
+				tx_cnt += sprintf(&txbuf[tx_cnt], "%s", keystr);
 				tx_esc_seqn = 0;
 				continue;
 			}
@@ -4403,13 +4436,6 @@ main(int argc, char *argv[])
 	}
 	argc -= optind;
 	argv += optind;
-
-#ifdef WIN32
-	if (terminal) {
-		system("color 0a");
-		system("cls");
-	}
-#endif
 
 	if (!quiet)
 		printf("%s (built %s %s)\n", verstr, __DATE__, __TIME__);
