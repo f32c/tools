@@ -436,6 +436,7 @@ static struct cable_hw_map {
 #define	LED_BLINK_RATE		250
 
 #define	BREAK_MS		250
+#define	PULSE_MS		50
 
 #define	SPI_PAGE_SIZE		256
 #define	SPI_SECTOR_SIZE		(256 * SPI_PAGE_SIZE)
@@ -905,6 +906,13 @@ setup_usb(void)
 		fprintf(stderr, "ftdi_set_bitmode() failed\n");
 		return (EXIT_FAILURE);
 	}
+
+	res = ftdi_setdtr_rts(&fc, 1, 1);
+	if (res < 0) {
+		fprintf(stderr, "ftdi_setdtr_rts() failed\n");
+		return (EXIT_FAILURE);
+	}
+
 
 	return (0);
 }
@@ -3369,29 +3377,29 @@ txfile(void)
 
 
 static void
-genbrk(void)
+genbrk(int ms)
 {
 
 	if (cable_hw == CABLE_HW_USB) {
 #ifdef WIN32
 		FT_SetBreakOn(ftHandle);
-		ms_sleep(BREAK_MS);
+		ms_sleep(ms);
 		FT_SetBreakOff(ftHandle);
 #else
 		ftdi_set_line_property2(&fc, BITS_8, STOP_BIT_1, NONE,
 		    BREAK_ON);
-		ms_sleep(BREAK_MS);
+		ms_sleep(ms);
 		ftdi_set_line_property2(&fc, BITS_8, STOP_BIT_1, NONE,
 		    BREAK_OFF);
 #endif
 	} else {
 #ifdef WIN32
 		EscapeCommFunction(com_port, SETBREAK);
-		ms_sleep(BREAK_MS);
+		ms_sleep(ms);
 		EscapeCommFunction(com_port, CLRBREAK);
 #else
 		ioctl(com_port, TIOCSBRK, NULL);
-		ms_sleep(BREAK_MS);
+		ms_sleep(ms);
 		ioctl(com_port, TIOCCBRK, NULL);
 #endif
 	}
@@ -3954,15 +3962,18 @@ term_emul(void)
 			 * Catch and process ~ escape sequences.
 			 */
 			if (key_phase == 2) {
+					key_phase = 1;
 				switch (c) {
 				case '?':
 					printf("~?\n");
 					terminal_help();
-					key_phase = 0;
 					continue;
 				case '#':
-					genbrk();
-					key_phase = 0;
+					genbrk(BREAK_MS);
+					continue;
+				case '1' ... '9':
+					for (c -= '0'; c > 0; c--)
+						genbrk(PULSE_MS);
 					continue;
 				case 'r':
 					reload = 1;
@@ -3995,7 +4006,6 @@ term_emul(void)
 							printf("%d: invalid"
 							    " baudrate\n", c);
 					}
-					key_phase = 0;
 					continue;
 				case '>':
 					printf("~>Local file name? ");
@@ -4011,11 +4021,9 @@ term_emul(void)
 					if (infile < 0)
 						printf("%s: cannot open\n",
 						    argbuf);
-					key_phase = 0;
 					continue;
 				case 'd':
 					debug_cmd();
-					key_phase = 0;
 					continue;
 				default:
 					if (c != '~') {
@@ -4567,7 +4575,7 @@ main(int argc, char *argv[])
 
 	do {
 		if (reload) {
-			genbrk();
+			genbrk(BREAK_MS);
 			reload = 0;
 		}
 		if (argc)
