@@ -907,7 +907,7 @@ setup_usb(void)
 		return (EXIT_FAILURE);
 	}
 
-	res = ftdi_setdtr_rts(&fc, 1, 1);
+	res = ftdi_setdtr_rts(&fc, 0, 0);
 	if (res < 0) {
 		fprintf(stderr, "ftdi_setdtr_rts() failed\n");
 		return (EXIT_FAILURE);
