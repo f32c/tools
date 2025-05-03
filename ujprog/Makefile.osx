@@ -1,13 +1,24 @@
-CFLAGS += -Wall `pkg-config --cflags libusb libftdi`
-LDFLAGS += `pkg-config --libs libusb libftdi`
+# build libusb, libftdi and adjust paths below accordingly
+# NOTE: static libraries are preferred, so produced binaries are portable
 
-# Install libusb-compat, libftdi0, pkg-config with 'brew install libusb-compat libftdi0 pkg-config'
+# location of libftdi built with CMake in build/ sub-folder
+# downloaded from https://www.intra2net.com/en/developer/libftdi/
+FTINC = ../../src/libftdi1-1.4/src
+FTLIB = ../../src/libftdi1-1.4/build/src/libftdi1.a
+
+# location of libusb built with ./configure --disable-shared --enable-static
+# downloaded from https://libusb.info
+USBINC = ../../src/libusb-1.0.22/libusb
+USBLIB = ../../src/libusb-1.0.22/libusb/.libs/libusb-1.0.a
+
+CFLAGS += -Wall -I${FTINC} -I${USBINC}
+LDFLAGS += ${FTLIB} ${USBLIB} -framework IOKit -framework Foundation
 
 ujprog:	ujprog.c
 	${CC} ${CFLAGS} $^ ${LDFLAGS} -o $@
 
 flash: ft232r_flash.c
-	${CC} ${CFLAGS} $^ ${LDFLAGS} -lusb -o $@
+	${CC} ${CFLAGS} $^ ${LDFLAGS} -o $@
 
 install: ujprog
 	install -m 4755 ujprog /usr/local/bin
