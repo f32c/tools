@@ -4575,6 +4575,8 @@ main(int argc, char *argv[])
 
 	do {
 		if (reload) {
+			set_port_mode(PORT_MODE_UART);
+			async_set_baudrate(bauds);
 			genbrk(BREAK_MS);
 			reload = 0;
 		}
