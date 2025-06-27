@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.1";
+static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.2";
 
 
 #include <ctype.h>
@@ -467,6 +467,7 @@ static const char *txfname;	/* file to send */
 static const char *com_name;	/* COM / TTY port name for -a or -t */
 static int spi_addr;		/* Base address for -j flash programming */
 static int global_debug;
+static int cbusval = -1;
 
 static struct cable_hw_map *hmp; /* Selected cable hardware map */
 #ifdef WIN32
@@ -2808,6 +2809,7 @@ usage(void)
 #ifdef USE_PPI
 	printf("  -c CABLE	Select USB (default) or PPI JTAG CABLE\n");
 #endif
+	printf("  -C value	Set CBUS pin values (FTDI only)\n");
 	printf("  -p PORT	Select USB JTAG / UART PORT (default is 0)\n");
 #ifdef WIN32
 	printf("  -P COM	Select COM port (valid only with -t or -a)\n");
@@ -4348,9 +4350,9 @@ main(int argc, char *argv[])
 #endif
 
 #if defined(USE_PPI) || defined(USE_RAW)
-#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rs:c:"
+#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rs:C:c:"
 #else
-#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rs:"
+#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rs:C:"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
@@ -4378,6 +4380,15 @@ main(int argc, char *argv[])
 			}
 			break;
 #endif
+		case 'C':
+			cbusval = strtol(optarg, NULL, 0);
+			if (cbusval < 0 || cbusval > 0xf) {
+				fprintf(stderr, "CBUS value %d "
+				    "out of range 0..15\n", cbusval);
+				exit(EXIT_FAILURE);
+			}
+			cbusval |= 0xf0;
+			break;
 		case 'd':
 			debug = 1;
 			global_debug = 1;
@@ -4457,7 +4468,8 @@ main(int argc, char *argv[])
 		return(res);
 	}
 
-	if (argc == 0 && terminal == 0 && txfname == NULL && reload == 0) {
+	if (argc == 0 && terminal == 0 && txfname == NULL && reload == 0
+	    && cbusval < 0) {
 		usage();
 		exit(EXIT_FAILURE);
 	}
@@ -4553,6 +4565,20 @@ main(int argc, char *argv[])
 	if (res) {
 		fprintf(stderr, "Cannot find JTAG cable.\n");
 		exit(EXIT_FAILURE);
+	}
+
+
+	if (cbusval >= 0) {
+#ifdef WIN32
+		res = FT_SetBitMode(ftHandle,
+#else
+		res = ftdi_set_bitmode(&fc,
+#endif
+		    cbusval, BITMODE_CBUS);
+		if (res != 0) {
+			fprintf(stderr, "CBUS config failed.\n");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	if (!quiet && cable_hw != CABLE_HW_COM) {
