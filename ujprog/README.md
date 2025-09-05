@@ -104,3 +104,16 @@ There can be many problems, I don't know what to do
 one of the issues is that ujprog executable may needs
 some dynamic linked library of specific version like libusb
 
+*** CMake ***
+
+It is standard CMake procedure:
+    # mkdir build
+    # cmake ..
+    # make
+    # make install
+
+You can also pass optional parameters:
+
+    # cmake -DBUILD_STATIC=ON -DLIBFTDISTATIC=/opt/libftdi/lib/libftdi.a -DLIBUSB0STATIC=/opt/libusb0/lib/libusb.a ..
+    # make install/strip
+
