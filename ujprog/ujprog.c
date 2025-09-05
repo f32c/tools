@@ -59,6 +59,10 @@ static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.2";
 #define USE_PPI
 #endif
 
+#if defined(__linux__)
+#include <usb.h>
+#endif
+
 #if defined(__linux__) || defined(WIN32)
 #define isnumber(x) (x >= '0' && x <= '9')
 #endif
