@@ -3142,22 +3142,25 @@ txfile(void)
 	int tx_retry, tx_success;
 	uint32_t rx_crc, local_crc, crc_i, tx_cnt;
 	uint32_t i, base, bootaddr;
-	FILE *fd;
 	uint8_t hdrbuf[16];
 
 	if (tx_binary) {
-		fd = fopen(txfname, "r");
-		if (fd == NULL) {
+		infile = open(txfname,
+#ifdef WIN32
+		    O_RDONLY | O_BINARY
+#else
+		    O_RDONLY
+#endif
+		);
+		if (infile < 0) {
 			fprintf(stderr, "%s: cannot open\n", txfname);
 			return;
 		}
-		i = fread(hdrbuf, 1, 16, fd);
-		fseek(fd, 0, SEEK_END);
-		// len = ftell(fd);
-		fseek(fd, 0, SEEK_SET);
-		fclose(fd);
+		i = read(infile, hdrbuf, 16);
+		close(infile);
 		if (i != 16) {
-			fprintf(stderr, "%s: short read\n", txfname);
+			fprintf(stderr, "%s: short read: got %d instead of "
+			    "16 bytes\n", txfname, i);
 			return;
 		}
 		if (hdrbuf[2] == 0x10 && hdrbuf[3] == 0x3c &&
