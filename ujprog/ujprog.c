@@ -2410,6 +2410,7 @@ exec_bit_file(char *path, int jed_target, int debug)
 	op = outbuf;
 
 	got = fread(inbuf, 1, flen, fd);
+	fclose(fd);
 	if (got != flen) {
 		fprintf(stderr, "short read: %ld instead of %ld\n",
 		    got, flen);
