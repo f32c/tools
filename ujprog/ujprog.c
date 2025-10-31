@@ -1,7 +1,7 @@
 /*
  * FT-232R / FT-231X USB JTAG programmer
  *
- * Copyright (c) 2010 - 2024 Marko Zec
+ * Copyright (c) 2010 - 2025 Marko Zec
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -401,6 +401,17 @@ static struct cable_hw_map {
 		.tms =		0x08,
 		.tdi =		0x02,
 		.tdo =		0x04,
+		.cbus_led =	0x00
+	},
+	{
+		.cable_hw = 	CABLE_HW_USB,
+		.usb_vid = 	0x0403,
+		.usb_pid =	0x6015,
+		.cable_path =	"ISP UART / JTAG",
+		.tck =		0x20,
+		.tms =		0x40,
+		.tdi =		0x80,
+		.tdo =		0x08,
 		.cbus_led =	0x00
 	},
 	{
