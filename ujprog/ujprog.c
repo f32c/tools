@@ -1,7 +1,7 @@
 /*
  * FT-232R / FT-231X USB JTAG programmer
  *
- * Copyright (c) 2010 - 2025 Marko Zec
+ * Copyright (c) 2010 - 2026 Marko Zec
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX2S / ULX3S JTAG programmer v 3.2";
+static const char *verstr = "ULX3S JTAG programmer v 3.3";
 
 
 #include <ctype.h>
@@ -627,6 +627,50 @@ set_port_mode(port_mode_t mode)
 
 
 #ifdef WIN32
+static void
+list_ports(void)
+{
+	FT_HANDLE ftHandle;
+	FT_STATUS ftStatus;
+	DWORD numDevs;
+	LONG comPortNumber;
+	FT_DEVICE_LIST_INFO_NODE *devInfo;
+	int i;
+
+	ftStatus = FT_CreateDeviceInfoList(&numDevs);
+	if (ftStatus != FT_OK) {
+		printf("FT_CreateDeviceInfoList() failed\n");
+		return;
+	}
+
+	if (numDevs == 0)
+		return;
+
+	devInfo = malloc(sizeof(FT_DEVICE_LIST_INFO_NODE)*numDevs);
+	ftStatus = FT_GetDeviceInfoList(devInfo,&numDevs);
+	if (ftStatus != FT_OK) {
+		free(devInfo);
+		printf("FT_GetDeviceInfoList() failed\n");
+		return;
+	}
+
+	for (i = 0; i < numDevs; i++) {
+		ftStatus = FT_Open(i, &ftHandle);
+		if (ftStatus != FT_OK)
+			continue;
+		FT_GetComPortNumber(ftHandle, &comPortNumber);
+		FT_Close(ftHandle);
+
+		printf("COM%d ", comPortNumber);
+		printf("FTDI #%d ", i);
+		printf("VID/PID 0x%x ",devInfo[i].ID);
+		printf("\"%s\" ",devInfo[i].Description);
+		printf("SN %s\n",devInfo[i].SerialNumber);
+	}
+	free(devInfo);
+}
+
+
 static int
 setup_usb(void)
 {
@@ -2824,6 +2868,7 @@ usage(void)
 	printf("  -C value	Set CBUS pin values (FTDI only)\n");
 	printf("  -p PORT	Select USB JTAG / UART PORT (default is 0)\n");
 #ifdef WIN32
+	printf("  -L            List available FTDI COM ports\n");
 	printf("  -P COM	Select COM port (valid only with -t or -a)\n");
 #else
 	printf("  -P TTY	Select TTY port (valid only with -t or -a)\n");
@@ -4365,9 +4410,9 @@ main(int argc, char *argv[])
 #endif
 
 #if defined(USE_PPI) || defined(USE_RAW)
-#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rs:C:c:"
+#define OPTS	"qtdLj:b:p:x:p:P:a:e:f:D:rs:C:c:"
 #else
-#define OPTS	"qtdj:b:p:x:p:P:a:e:f:D:rs:C:"
+#define OPTS	"qtdLj:b:p:x:p:P:a:e:f:D:rs:C:"
 #endif
 	while ((c = getopt(argc, argv, OPTS)) != -1) {
 		switch (c) {
@@ -4462,8 +4507,16 @@ main(int argc, char *argv[])
 			had_terminal = 1;
 #endif
 			break;
+#ifdef WIN32
+		case 'L':
+			list_ports();
+			exit(0);
+#endif
 		case '?':
+			usage();
+			exit(0);
 		default:
+			printf("Unsupported option: %c\n\n", c);
 			usage();
 			exit(EXIT_FAILURE);
 		}
