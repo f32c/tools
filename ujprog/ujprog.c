@@ -627,47 +627,82 @@ set_port_mode(port_mode_t mode)
 
 
 #ifdef WIN32
+static int
+ftOpenCOM(int comnum, FT_HANDLE *ftHandle, FT_DEVICE_LIST_INFO_NODE *devInfo)
+{
+	DWORD numDevs;
+	FT_STATUS ftStatus;
+	FT_DEVICE_LIST_INFO_NODE *devInfoTbl;
+	LONG num;
+	int i;
+
+	ftStatus = FT_CreateDeviceInfoList(&numDevs);
+	if (ftStatus != FT_OK ||numDevs == 0)
+		return -1;
+
+	devInfoTbl = malloc(sizeof(*devInfoTbl) * numDevs);
+	ftStatus = FT_GetDeviceInfoList(devInfoTbl, &numDevs);
+	if (ftStatus != FT_OK) {
+		free(devInfoTbl);
+		return -1;
+	}
+
+	for (i = 0; i < numDevs; i++) {
+		ftStatus = FT_Open(i, ftHandle);
+		if (ftStatus != FT_OK)
+			continue;
+
+		FT_GetComPortNumber(*ftHandle, &num);
+		if (num != comnum) {
+			FT_Close(*ftHandle);
+			continue;
+		}
+
+		if (devInfo != NULL)
+			memcpy(devInfo, &devInfoTbl[i], sizeof(*devInfo));
+		free(devInfoTbl);
+		return 0;
+	}
+
+	free(devInfoTbl);
+	return -1;
+}
+
 static void
 list_ports(void)
 {
 	FT_HANDLE ftHandle;
-	FT_STATUS ftStatus;
-	DWORD numDevs;
-	LONG comPortNumber;
-	FT_DEVICE_LIST_INFO_NODE *devInfo;
-	int i;
+	FT_DEVICE_LIST_INFO_NODE devInfo;
+	int num, size;
+	char *buf, *cp;
 
-	ftStatus = FT_CreateDeviceInfoList(&numDevs);
-	if (ftStatus != FT_OK) {
-		printf("FT_CreateDeviceInfoList() failed\n");
+	size = 1024 * 1024;
+	buf = malloc(size);
+	if (QueryDosDevice(NULL, buf, size) == 0) {
+		printf("QueryDosDevice() failed\n");
+		free(buf);
 		return;
-	}
+	};
 
-	if (numDevs == 0)
-		return;
-
-	devInfo = malloc(sizeof(FT_DEVICE_LIST_INFO_NODE)*numDevs);
-	ftStatus = FT_GetDeviceInfoList(devInfo,&numDevs);
-	if (ftStatus != FT_OK) {
-		free(devInfo);
-		printf("FT_GetDeviceInfoList() failed\n");
-		return;
-	}
-
-	for (i = 0; i < numDevs; i++) {
-		ftStatus = FT_Open(i, &ftHandle);
-		if (ftStatus != FT_OK)
+	for (cp = buf; *cp != 0; cp += strlen(cp) + 1) {
+		if (strncmp("COM", cp, 3) != 0)
 			continue;
-		FT_GetComPortNumber(ftHandle, &comPortNumber);
-		FT_Close(ftHandle);
+		num = atoi(&cp[3]);
+		sprintf(buf, "COM%d", num);
+		printf("%s: ", buf);
+		if (ftOpenCOM(num, &ftHandle, &devInfo) == 0) {
+			printf("VID/PID 0x%08lx ", devInfo.ID);
+			printf("\"%s\" ", devInfo.Description);
+			printf("SN %s\n", devInfo.SerialNumber);
+		} else {
+			printf("\n");
+			continue;
+		}
 
-		printf("COM%d ", comPortNumber);
-		printf("FTDI #%d ", i);
-		printf("VID/PID 0x%x ",devInfo[i].ID);
-		printf("\"%s\" ",devInfo[i].Description);
-		printf("SN %s\n",devInfo[i].SerialNumber);
+		FT_Close(ftHandle);
 	}
-	free(devInfo);
+
+	free(buf);
 }
 
 
@@ -693,7 +728,7 @@ setup_usb(void)
 		return (res);
 	}
 	for (hmp = cable_hw_map; hmp->cable_hw != CABLE_UNKNOWN; hmp++) {
-		if ((deviceID == hmp->usb_vid << 16 | hmp->usb_pid)
+		if (deviceID == ((hmp->usb_vid << 16) | hmp->usb_pid)
 		    && strcmp(Description, hmp->cable_path) == 0)
 			break;
 	}
@@ -3976,7 +4011,8 @@ term_emul(void)
 				default:
 					break;
 				}
-				tx_cnt += sprintf(&txbuf[tx_cnt], "%s", keystr);
+				tx_cnt += sprintf((char *) &txbuf[tx_cnt],
+				    "%s", keystr);
 				tx_esc_seqn = 0;
 				continue;
 			}
@@ -4014,7 +4050,8 @@ term_emul(void)
 				default:
 					break;
 				}
-				tx_cnt += sprintf(&txbuf[tx_cnt], "%s", keystr);
+				tx_cnt += sprintf((char *) &txbuf[tx_cnt],
+				    "%s", keystr);
 				tx_esc_seqn = 0;
 				continue;
 			}
@@ -4585,8 +4622,9 @@ main(int argc, char *argv[])
 		if (xbauds == 0)
 			xbauds = bauds;
 #ifdef WIN32
-		sprintf(txbuf, "\\\\.\\%s", com_name);
-		com_port = CreateFile(txbuf,  GENERIC_READ | GENERIC_WRITE, 
+		sprintf((char *) txbuf, "\\\\.\\%s", com_name);
+		com_port = CreateFile((char *) txbuf,
+		    GENERIC_READ | GENERIC_WRITE,
 		    0, NULL, OPEN_EXISTING, 0, NULL);
 		if (com_port == INVALID_HANDLE_VALUE) {
 			fprintf(stderr, "Can't open %s\n", com_name);
@@ -4594,7 +4632,7 @@ main(int argc, char *argv[])
 		}
 		async_set_baudrate(bauds);
 		if (GetCommTimeouts(com_port, &com_to) == 0) {
-			fprintf(stderr, "Can't configure %s\n", com_port);
+			fprintf(stderr, "Can't configure %s\n", com_name);
 			exit(EXIT_FAILURE);
 		}
 		com_to.ReadIntervalTimeout = 1;
