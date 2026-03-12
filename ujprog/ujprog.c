@@ -628,11 +628,12 @@ set_port_mode(port_mode_t mode)
 
 #ifdef WIN32
 static int
-ftOpenCOM(int comnum, FT_HANDLE *ftHandle, FT_DEVICE_LIST_INFO_NODE *devInfo)
+com2ftindex(int comnum, FT_DEVICE_LIST_INFO_NODE *devInfo)
 {
 	DWORD numDevs;
 	FT_STATUS ftStatus;
 	FT_DEVICE_LIST_INFO_NODE *devInfoTbl;
+	FT_HANDLE ftHandle;
 	LONG num;
 	int i;
 
@@ -648,20 +649,19 @@ ftOpenCOM(int comnum, FT_HANDLE *ftHandle, FT_DEVICE_LIST_INFO_NODE *devInfo)
 	}
 
 	for (i = 0; i < numDevs; i++) {
-		ftStatus = FT_Open(i, ftHandle);
+		ftStatus = FT_Open(i, &ftHandle);
 		if (ftStatus != FT_OK)
 			continue;
 
-		FT_GetComPortNumber(*ftHandle, &num);
-		if (num != comnum) {
-			FT_Close(*ftHandle);
+		FT_GetComPortNumber(ftHandle, &num);
+		FT_Close(ftHandle);
+		if (num != comnum)
 			continue;
-		}
 
 		if (devInfo != NULL)
 			memcpy(devInfo, &devInfoTbl[i], sizeof(*devInfo));
 		free(devInfoTbl);
-		return 0;
+		return i;
 	}
 
 	free(devInfoTbl);
@@ -671,9 +671,8 @@ ftOpenCOM(int comnum, FT_HANDLE *ftHandle, FT_DEVICE_LIST_INFO_NODE *devInfo)
 static void
 list_ports(void)
 {
-	FT_HANDLE ftHandle;
 	FT_DEVICE_LIST_INFO_NODE devInfo;
-	int num, size;
+	int num, size, ftindex;
 	char *buf, *cp;
 
 	size = 1024 * 1024;
@@ -690,16 +689,15 @@ list_ports(void)
 		num = atoi(&cp[3]);
 		sprintf(buf, "COM%d", num);
 		printf("%s: ", buf);
-		if (ftOpenCOM(num, &ftHandle, &devInfo) == 0) {
-			printf("VID/PID 0x%08lx ", devInfo.ID);
+		ftindex = com2ftindex(num, &devInfo);
+		if (ftindex >= 0) {
+			printf("FTDI 0x%04lx ", devInfo.ID & 0xffff);
 			printf("\"%s\" ", devInfo.Description);
 			printf("SN %s\n", devInfo.SerialNumber);
 		} else {
 			printf("\n");
 			continue;
 		}
-
-		FT_Close(ftHandle);
 	}
 
 	free(buf);
@@ -4560,6 +4558,16 @@ main(int argc, char *argv[])
 	}
 	argc -= optind;
 	argv += optind;
+
+#ifdef WIN32
+	/* Attempt to convert -P com port to FTDI port index */
+	if (cable_hw == CABLE_HW_COM && (c = atoi(&com_name[3])) > 0
+	    && (c = com2ftindex(c, NULL)) > 0) {
+		cable_hw = CABLE_HW_USB;
+		port_index = c;
+		com_name = NULL;
+	}
+#endif
 
 	if (!quiet)
 		printf("%s (built %s %s)\n", verstr, __DATE__, __TIME__);
