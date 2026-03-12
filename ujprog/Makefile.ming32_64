@@ -19,7 +19,8 @@ INCS = -I.
 CXXINCS = -I.
 BIN  = ujprog.exe
 CXXFLAGS = $(CXXINCS) -wAll
-CFLAGS = $(INCS)
+CFLAGS += -Wall
+CFLAGS += $(INCS)
 RM = rm -f
 
 .PHONY: all all-before all-after clean clean-custom
