@@ -691,7 +691,8 @@ list_ports(void)
 		printf("%s: ", buf);
 		ftindex = com2ftindex(num, &devInfo);
 		if (ftindex >= 0) {
-			printf("FTDI 0x%04lx ", devInfo.ID & 0xffff);
+			printf("FTDI #%d (PID 0x%04lx) ", ftindex,
+			    devInfo.ID & 0xffff);
 			printf("\"%s\" ", devInfo.Description);
 			printf("SN %s\n", devInfo.SerialNumber);
 		} else {
@@ -4562,7 +4563,7 @@ main(int argc, char *argv[])
 #ifdef WIN32
 	/* Attempt to convert -P com port to FTDI port index */
 	if (cable_hw == CABLE_HW_COM && (c = atoi(&com_name[3])) > 0
-	    && (c = com2ftindex(c, NULL)) > 0) {
+	    && (c = com2ftindex(c, NULL)) >= 0) {
 		cable_hw = CABLE_HW_USB;
 		port_index = c;
 		com_name = NULL;
