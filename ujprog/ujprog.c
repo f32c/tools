@@ -674,6 +674,7 @@ list_ports(void)
 	FT_DEVICE_LIST_INFO_NODE devInfo;
 	int num, size, ftindex;
 	char *buf, *cp;
+	char comtbl[1024];
 
 	size = 1024 * 1024;
 	buf = malloc(size);
@@ -683,18 +684,27 @@ list_ports(void)
 		return;
 	};
 
+	memset(comtbl, 0, sizeof(comtbl));
 	for (cp = buf; *cp != 0; cp += strlen(cp) + 1) {
 		if (strncmp("COM", cp, 3) != 0)
 			continue;
 		num = atoi(&cp[3]);
+		if (num >= sizeof(comtbl))
+			continue;
+		comtbl[num] = 1;
+	}
+
+	for (num = 0; num < sizeof(comtbl); num++) {
+		if (comtbl[num] == 0)
+			continue;
 		sprintf(buf, "COM%d", num);
 		printf("%s: ", buf);
 		ftindex = com2ftindex(num, &devInfo);
 		if (ftindex >= 0) {
-			printf("FTDI #%d (PID 0x%04lx) ", ftindex,
+			printf("%s (SN %s) ", devInfo.Description,
+			    devInfo.SerialNumber);
+			printf("FTDI #%d PID 0x%04lx\n", ftindex,
 			    devInfo.ID & 0xffff);
-			printf("\"%s\" ", devInfo.Description);
-			printf("SN %s\n", devInfo.SerialNumber);
 		} else {
 			printf("\n");
 			continue;
