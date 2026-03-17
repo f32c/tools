@@ -691,7 +691,15 @@ list_ports(void)
 		num = atoi(&cp[3]);
 		if (num >= sizeof(comtbl))
 			continue;
-		comtbl[num] = 1;
+		sprintf((char *) txbuf, "\\\\.\\%s", cp);
+		com_port = CreateFile((char *) txbuf,
+		    GENERIC_READ | GENERIC_WRITE,
+		    0, NULL, OPEN_EXISTING, 0, NULL);
+		if (com_port == INVALID_HANDLE_VALUE)
+			comtbl[num] = -1;
+		else
+			comtbl[num] = 1;
+		CloseHandle(com_port);
 	}
 
 	for (num = 0; num < sizeof(comtbl); num++) {
@@ -705,10 +713,10 @@ list_ports(void)
 			    devInfo.SerialNumber);
 			printf("FTDI #%d PID 0x%04lx\n", ftindex,
 			    devInfo.ID & 0xffff);
-		} else {
-			printf("\n");
-			continue;
-		}
+		} else if (comtbl[num] > 0)
+			printf("Generic port\n");
+		else
+			printf("(port in use)\n");
 	}
 
 	free(buf);
