@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX3S JTAG programmer v 3.3";
+static const char *verstr = "ULX3S JTAG programmer v 3.4";
 
 
 #include <ctype.h>
@@ -2886,13 +2886,15 @@ static void
 terminal_help(void)
 {
 
+	printf("  ~>	send file\n");
+	if (cable_hw == CABLE_HW_USB)
+		printf("  ~c	set FTDI CBUS pins\n");
 	printf(
-	    "  ~>	send file\n"
 	    "  ~b	change baudrate\n"
-	    "  ~r	reprogram / reload "
-		"the FPGA\n"
-	    "  ~#	send a BREAK signal\n"
 	    "  ~d	enter f32c debugger\n"
+	    "  ~r	reprogram / reload the FPGA\n"
+	    "  ~#	send a BREAK signal\n"
+	    "  ~0..9	send short break pulses\n"
 	    "  ~.	exit from ujprog\n"
 	    "  ~?	get this summary\n"
 	);
@@ -4070,7 +4072,7 @@ term_emul(void)
 			 * Catch and process ~ escape sequences.
 			 */
 			if (key_phase == 2) {
-					key_phase = 1;
+				key_phase = 1;
 				switch (c) {
 				case '?':
 					printf("~?\n");
@@ -4082,6 +4084,31 @@ term_emul(void)
 				case '1' ... '9':
 					for (c -= '0'; c > 0; c--)
 						genbrk(PULSE_MS);
+					continue;
+				case 'c':
+					if (cable_hw != CABLE_HW_USB) {
+						txbuf[tx_cnt] = '~';
+						tx_cnt++;
+						txbuf[tx_cnt] = c;
+						key_phase = 0;
+						break;
+					}
+					printf("~>New CBUS value? ");
+					fflush(stdout);
+					gets1(argbuf, sizeof(argbuf));
+					c = strtol(argbuf, NULL, 0);
+					if (c < 0 || c > 0xf)
+						fprintf(stderr, "CBUS value %d "
+						    "out of range 0..15\n", c);
+					else {
+						c |= 0xf0;
+#ifdef WIN32
+						FT_SetBitMode(ftHandle,
+#else
+						ftdi_set_bitmode(&fc,
+#endif
+						    c, BITMODE_CBUS);
+					}
 					continue;
 				case 'r':
 					reload = 1;
