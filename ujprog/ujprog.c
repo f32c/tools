@@ -75,6 +75,7 @@ static const char *verstr = "ULX3S JTAG programmer v 3.4";
 #include <dev/ppbus/ppi.h>
 #include <dev/ppbus/ppbconf.h>
 #endif
+#include <libusb.h>
 #include <ftdi.h>
 #endif
 
@@ -1045,7 +1046,7 @@ shutdown_usb(void)
 	}
 
 #ifdef __linux__
-	usb_reset((void *) fc.usb_dev);
+	libusb_reset_device(fc.usb_dev);
 #else
 	res = ftdi_usb_close(&fc);
 	if (res < 0) {
