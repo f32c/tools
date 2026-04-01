@@ -7,9 +7,9 @@ ARCHNAME = $(shell uname -m)-linux-gnu
 # for linux on raspberrypi-3
 # ARCHNAME = arm-linux-gnueabihf
 
-FTLIB = /usr/lib/${ARCHNAME}/libftdi.a
+FTLIB ?= /usr/lib/${ARCHNAME}/libftdi.a
 #FTLIB = -lftdi
-USBLIB = /usr/lib/${ARCHNAME}/libusb.a
+USBLIB ?= /usr/lib/${ARCHNAME}/libusb.a
 
 ujprog:	${SRCS}
 	${CC} ${CFLAGS} ${SRCS} ${FTLIB} ${USBLIB} -o ujprog
