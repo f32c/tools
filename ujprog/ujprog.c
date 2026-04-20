@@ -41,7 +41,7 @@
  * - execute SVF commands provided as command line args?
  */
 
-static const char *verstr = "ULX3S JTAG programmer v 3.4";
+static const char *verstr = "ULX3S JTAG programmer v 3.5";
 
 
 #include <ctype.h>
@@ -468,7 +468,7 @@ static int blinker_phase;
 static int progress_perc;
 static int bauds = 115200;	/* async terminal emulation baudrate */
 static int xbauds;		/* binary transfer baudrate */
-static int port_index;
+static int port_index = -1;
 static int terminal;		/* terminal emulation mode */
 static int reload;		/* send break to reset f32c */
 static int quiet;		/* suppress standard messages */
@@ -733,7 +733,10 @@ setup_usb(void)
 	char SerialNumber[16];
 	char Description[64];
 
-	res = FT_Open(port_index, &ftHandle);
+	if (port_index >= 0)
+		res = FT_Open(port_index, &ftHandle);
+	else
+		res = FT_Open(0, &ftHandle);
 	if (res != FT_OK) {
 		fprintf(stderr, "FT_Open() failed\n");
 		return (res);
@@ -750,7 +753,7 @@ setup_usb(void)
 		    && strcmp(Description, hmp->cable_path) == 0)
 			break;
 	}
-	if (hmp->cable_hw == CABLE_UNKNOWN)
+	if (port_index < 0 && hmp->cable_hw == CABLE_UNKNOWN)
 		return (-1);
 
 	if (!quiet)
@@ -970,6 +973,8 @@ setup_usb(void)
 		return (res);
 	}
 
+	if (port_index < 0)
+		port_index = 0;
 	for (hmp = cable_hw_map; hmp->cable_hw != CABLE_UNKNOWN; hmp++) {
 		res = ftdi_usb_open_desc_index(&fc, hmp->usb_vid, hmp->usb_pid,
 		    hmp->cable_path, NULL, port_index);
