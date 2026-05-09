@@ -3259,7 +3259,9 @@ txfile(void)
 	int tx_retry, tx_success;
 	uint32_t rx_crc, local_crc, crc_i, tx_cnt;
 	uint32_t i, base, bootaddr;
-	uint8_t hdrbuf[16];
+	uint8_t hdrbuf[40];
+	uint32_t *longp = (void *) hdrbuf;
+	uint16_t *shortp = (void *) hdrbuf;
 
 	if (tx_binary) {
 		infile = open(txfname,
@@ -3273,40 +3275,39 @@ txfile(void)
 			fprintf(stderr, "%s: cannot open\n", txfname);
 			return;
 		}
-		i = read(infile, hdrbuf, 16);
+		i = read(infile, hdrbuf, sizeof(hdrbuf));
 		close(infile);
-		if (i != 16) {
+		if (i != sizeof(hdrbuf)) {
 			fprintf(stderr, "%s: short read: got %d instead of "
-			    "16 bytes\n", txfname, i);
+			    "%lu bytes\n", txfname, i, sizeof(hdrbuf));
 			return;
 		}
-		if (hdrbuf[2] == 0x10 && hdrbuf[3] == 0x3c &&
-		    hdrbuf[6] == 0x10 && hdrbuf[7] == 0x26 &&
-		    hdrbuf[10] == 0x11 && hdrbuf[11] == 0x3c &&
-		    hdrbuf[14] == 0x31 && hdrbuf[7] == 0x26) {
-			/* MIPS, little-endian cookie found */
-			base = (hdrbuf[1] << 24) + (hdrbuf[0] << 16)
-			    + (hdrbuf[5] << 8) + hdrbuf[4];
+		if (longp[0] == 0x3c00f32c &&
+		    shortp[3] == 0x3c10 && shortp[5] == 0x2610 &&
+		    shortp[7] == 0x3c1b && shortp[9] == 0x277b &&
+		    shortp[11] == 0x3c10 && shortp[13] == 0x2610 &&
+		    shortp[15] == 0x3c11 && shortp[17] == 0x2631) {
 			if (!quiet)
 				printf("MIPS little-endian");
-		} else if (hdrbuf[2] == 0x10 && hdrbuf[3] == 0x3c &&
-		    hdrbuf[6] == 0x10 && hdrbuf[7] == 0x26 &&
-		    hdrbuf[10] == 0x11 && hdrbuf[11] == 0x3c) {
-			/* MIPS, big-endian cookie found */
-			/* XXX fixme */
-			fprintf(stderr, "%s: MIPS, big-endian UNSUPPORTED\n",
-			    txfname);
-			return;
-		} else if ((hdrbuf[1] & 0xf) == 1 && hdrbuf[0] == 0x97 &&
-		    hdrbuf[4] == 0x93 && hdrbuf[5] == 0x81) {
-			/* RISC-V, little-endian cookie found */
-			/* XXX hardcoded load address - fixme */
-			base = 0x400;
+			base = (hdrbuf[5] << 24) + (hdrbuf[4] << 16)
+			    + (hdrbuf[9] << 8) + hdrbuf[8];
+		} else if (longp[0] == 0xf32c0037 &&
+		    hdrbuf[4] == 0x37 && (hdrbuf[5] & 0xf) == 0x4 &&
+		    hdrbuf[8] == 0x13 && hdrbuf[9] == 0x04 &&
+		    hdrbuf[12] == 0x37 && (hdrbuf[13] & 0xf) == 0x2 &&
+		    hdrbuf[16] == 0x13 && hdrbuf[17] == 0x02 &&
+		    hdrbuf[20] == 0x37 && (hdrbuf[21] & 0xf) == 0x4 &&
+		    hdrbuf[24] == 0x13 && hdrbuf[25] == 0x04 &&
+		    hdrbuf[28] == 0xb7 && (hdrbuf[29] & 0xf) == 0x4 &&
+		    hdrbuf[32] == 0x93 && hdrbuf[33] == 0x84) {
 			if (!quiet)
-				printf("RISC-V (PIC)");
+				printf("RISC-V");
+			base = (hdrbuf[7] << 24) + (hdrbuf[6] << 16) +
+			    ((hdrbuf[5] & 0xf0) << 8) +
+			    (hdrbuf[11] << 4) + (hdrbuf[10] >> 4);
 		} else {
 			fprintf(stderr,
-			    "invalid file type, missing header cookie\n");
+			    "f32c header not found, invalid file type!\n");
 			return;
 		}
 		bootaddr = base;
