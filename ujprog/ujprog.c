@@ -4547,6 +4547,7 @@ main(int argc, char *argv[])
 		case 'e':
 			txfname = optarg;
 			tx_binary = 1;
+			reload = 1;
 			break;
 		case 'j':
 			if (strcasecmp(optarg, "sram") == 0)
