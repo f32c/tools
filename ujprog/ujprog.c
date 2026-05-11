@@ -3279,7 +3279,7 @@ txfile(void)
 		close(infile);
 		if (i != sizeof(hdrbuf)) {
 			fprintf(stderr, "%s: short read: got %d instead of "
-			    "%llu bytes\n", txfname, i, sizeof(hdrbuf));
+			    "%d bytes\n", txfname, i, (int) sizeof(hdrbuf));
 			return;
 		}
 		if (longp[0] == 0x3c00f32c &&
